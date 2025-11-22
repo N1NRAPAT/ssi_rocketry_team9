@@ -36,7 +36,8 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 set (SOURCES
     src/main.c
-    src/devices/servo.c)
+    src/devices/servo.c
+    src/devices/imu.c)
 
 add_executable(SSI_rocketry ${SOURCES} )
 

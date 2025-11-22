@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "devices/servo.h"
+
+#include "devices/servo.h" // servo
+#include "devices/imu.h" // imu
 
 
 int main()

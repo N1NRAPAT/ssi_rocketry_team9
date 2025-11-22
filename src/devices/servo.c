@@ -2,6 +2,14 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 
+/*
+    22 Nov 2025
+
+    Servo initialize function V1 this version aim to rotate servo by angle 
+    from 0 to 180 degree (SG90 cannot control speed reaction)
+
+*/
+
 #define I2C_PORT i2c0
 #define SDA_PIN 4
 #define SCL_PIN 5
