@@ -5,5 +5,5 @@
 
 int main(){
 
-    stdin_init_all();
+    stdio_init_all();
 }
