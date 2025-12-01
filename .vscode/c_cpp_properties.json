@@ -4,7 +4,12 @@
             "name": "Pico",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${userHome}/.pico-sdk/sdk/2.2.0/**"
+                "${userHome}/.pico-sdk/sdk/2.2.0/**",
+
+                // FatFs SPI library includes
+                "${workspaceFolder}/libs/FatFs_SPI/include",
+                "${workspaceFolder}/libs/FatFs_SPI/sd_driver",
+                "${workspaceFolder}/libs/FatFs_SPI/ff15/source"
             ],
             "forcedInclude": [
                 "${workspaceFolder}/build/generated/pico_base/pico/config_autogen.h",

@@ -37,9 +37,13 @@ pico_sdk_init()
 set (SOURCES
     src/main.c
     src/devices/imu.c
+    src/data/sdcard.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
+
+add_subdirectory(libs/FatFs_SPI)
+
 
 pico_set_program_name(SSI_rocketry "SSI_rocketry")
 pico_set_program_version(SSI_rocketry "0.1")
@@ -53,13 +57,12 @@ target_link_libraries(SSI_rocketry
         pico_stdlib
         hardware_i2c
         hardware_spi
-       
+        FatFs_SPI
         )
 
 # Add the standard include files to the build
 target_include_directories(SSI_rocketry PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-       
         )
 
 pico_add_extra_outputs(SSI_rocketry)
