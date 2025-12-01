@@ -33,3 +33,28 @@ Avionic team member :
   Kene 
 
   
+
+Pin GPIO :
+
+I2C0 — For IMU + Barometer
+* SDA → GPIO 4
+* SCL → GPIO 5
+UART1 — For GPS
+* GPS TX → GPIO 9
+* GPS RX → GPIO 8
+SPI0 — For LoRa SX1278
+* SCK → GPIO 18
+* MOSI → GPIO 19
+* MISO → GPIO 16
+* CS → GPIO 17
+* DIO0 → GPIO 20
+SPI1 — For SD Card
+* SCK → GPIO 10
+* MOSI → GPIO 11
+* MISO → GPIO 12
+* CS → GPIO 13
+Power
+* All sensors (except GPS) → 3.3V
+* GPS → 5V
+* All grounds → GND
+
