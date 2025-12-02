@@ -1,16 +1,6 @@
 #!/bin/bash
 
-
-# MENU
-echo "==============================="
-echo " Select an option:"
-echo " 1 = Run Pico code"
-echo " 2 = Run Python simulation"
-echo " 3 = Run Pico code AND run Python"
-echo "==============================="
-read -p "Enter your choice (1/2/3): " choice
-echo
-
+# flash funtion 
 flash_pico() {
 
     echo " Building Pico "
@@ -50,22 +40,85 @@ run_python() {
     python3 tools/Imu_sim.py
 }
 
-case $choice in
+# Cmake-Configure
+configure() {
+    echo "=== Configuring CMake ==="
+    mkdir -p build
+    cd build
+    cmake ..
+    cd ..
+    echo "=== CMake configure done ==="
+}
 
+#Cmake build
+build() {
+    echo "=== Building firmware ==="
+    cd build
+    make -j4 || { echo " Build failed"; exit 1; }
+    cd ..
+    echo "=== Build complete ==="
+}
+
+clean() {
+    echo "=== Cleaning build folder ==="
+    rm -rf build
+    mkdir build
+    echo "=== Build folder cleaned ==="
+}
+
+echo "=================================="
+echo "         LAUNCH MENU"
+echo "=================================="
+echo "1 = Configure CMake"
+echo "2 = Build firmware"
+echo "3 = Flash Pico firmware"
+echo "4 = Run Python simulation/logger"
+echo "5 = Clean build folder"
+echo "6 = Build + Flash"
+echo "7 = Build + Flash + Run Python"
+echo "=================================="
+read -p "Choose option (1–7): " choice
+echo ""
+
+# --------------------------------
+# EXECUTE CHOICE
+# --------------------------------
+
+case $choice in
     1)
-        flash_pico
+        configure
         ;;
 
     2)
-        run_python
+        build
         ;;
 
     3)
+        flash_pico
+        ;;
+
+    4)
+        run_python
+        ;;
+
+    5)
+        clean
+        ;;
+
+    6)
+        configure
+        build
+        flash_pico
+        ;;
+
+    7)
+        configure
+        build
         flash_pico
         run_python
         ;;
 
     *)
-        echo "Invalid choice. Please enter 1, 2, or 3."
+        echo "Invalid option"
         ;;
 esac
