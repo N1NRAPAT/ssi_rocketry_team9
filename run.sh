@@ -52,10 +52,8 @@ configure() {
 
 #Cmake build
 build() {
-    echo "=== Building firmware ==="
-    cd build
-    make -j4 || { echo " Build failed"; exit 1; }
-    cd ..
+    echo "=== Building firmware with CMake ==="
+    cmake --build build || { echo " Build failed"; exit 1; }
     echo "=== Build complete ==="
 }
 
