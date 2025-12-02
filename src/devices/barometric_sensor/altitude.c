@@ -1,4 +1,7 @@
-#include "altitude.h"
+#include "src/devices/barometric_sensor/altitude.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 // ----------- CONSTANTS -----------

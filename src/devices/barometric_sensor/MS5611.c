@@ -1,3 +1,6 @@
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "MS5611.h"
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
