@@ -12,49 +12,60 @@ import os
 # Folder to save CSV
 SAVE_FOLDER = "/Users/punnaratsuttinual/SSI_rocketry/data/"
 
-# Auto-detect Pico serial port
+# ----------- AUTO-DETECT PICO SERIAL PORT (FINAL FIXED VERSION) -----------
 def find_pico_port():
     ports = serial.tools.list_ports.comports()
     for p in ports:
-        if ("Pico" in p.description or
-            "usbmodem" in p.device or
-            "ttyACM" in p.device or
-            "USB Serial Device" in p.description):
-            return p.device
+        desc = p.description.lower()
+        dev = p.device.lower()
+
+        # Check descriptions OR typical Mac serial names
+        if ("pico" in desc or
+            "rp2" in desc or
+            "usb serial" in desc or
+            "usbmodem" in dev):
+
+            # Prefer /tty.* but accept /cu.* fallback
+            if "/tty." in dev:
+                return p.device
+            if "/cu." in dev:
+                return p.device
+
     return None
+# ---------------------------------------------------------------------------
 
 print(" Searching for Pico serial port…")
-port = find_pico_port()
 
-if port is None:
-    print("ERROR: No Pico detected. Plug it in and try again.")
-    exit()
+port = None
+while port is None:
+    port = find_pico_port()
+    if port is None:
+        print(" Waiting for Pico...")
+        time.sleep(0.5)
 
-print(f" Pico detected on: {port}")
+print(f"Pico detected on: {port}")
 
-# Open serial
+# Open serial port
 ser = serial.Serial(port, 115200)
 
-# IMU collection window 
-START_MS = 30000 # start at 30s 
-STOP_MS = 60000 # stop at 60s
+# IMU logging window
+START_MS = 30000
+STOP_MS = 60000
 
-# Create clean CSV name
+# CSV setup + file name
 timestamp = datetime.now().strftime("%H_%M_%S")
 csv_path = os.path.join(SAVE_FOLDER, f"imu_flight_{timestamp}.csv")
-
 csv_file = open(csv_path, "w", newline="")
 writer = csv.writer(csv_file)
 writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "time_ms"])
 
-print("Logging + Simulation started!")
+print(" Logging + Simulation started!")
 
-# Setup live plot
+# Plot setup
 plt.ion()
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
-# cube model generate from gpt 
 cube = np.array([
     [-1, -1, -1],
     [-1, -1,  1],
@@ -66,7 +77,6 @@ cube = np.array([
     [ 1,  1,  1],
 ])
 
-# Rotate cube in real time 
 def rotate(points, rx, ry, rz):
     Rx = np.array([
         [1, 0, 0],
@@ -85,34 +95,32 @@ def rotate(points, rx, ry, rz):
     ])
     return points @ Rx @ Ry @ Rz
 
-
 # MAIN LOOP
-
-start_time = time.time() # Set timer 
+start_time = time.time()
 
 while True:
-    line = ser.readline().decode().strip() # Read via usb port from imu sensor
+    line = ser.readline().decode().strip()
     parts = line.split(",")
 
-    if len(parts) != 6: # ax, ay, az, gx, gy, gz
+    if len(parts) != 6:
         continue
 
     ax_val, ay_val, az_val, gx, gy, gz = map(int, parts)
-    now = int((time.time() - start_time) * 1000) #convert timmer to real time 
+    now = int((time.time() - start_time) * 1000)
 
-
-    # 1. WRITE CSV (only 30s–60s)
+    # CSV logging (30–60s)
     if START_MS <= now <= STOP_MS:
         writer.writerow([ax_val, ay_val, az_val, gx, gy, gz, now])
 
     if now > STOP_MS:
-        print("Finished logging!")
+        print(" Finished logging!")
         break
 
-    # 2. REAL-TIME 3D SIMULATION
+    # Real-time cube rotation
     rx = radians(gx * 0.0007)
     ry = radians(gy * 0.0007)
     rz = radians(gz * 0.0007)
+
     rot = rotate(cube, rx, ry, rz)
 
     ax.clear()
@@ -126,4 +134,4 @@ while True:
     plt.pause(0.001)
 
 csv_file.close()
-print(f"Saved CSV → {csv_path}")
+print(f" Saved CSV → {csv_path}")

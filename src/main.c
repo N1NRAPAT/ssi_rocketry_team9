@@ -9,6 +9,7 @@ int main()
 {
     stdio_init_all();
     sleep_ms(3000); // Wait 3 s
+    printf("Ready!\n");
     // ------- LED Flashing program ---------
 
     gpio_init(PICO_DEFAULT_LED_PIN);
@@ -25,7 +26,7 @@ int main()
 
     mpu6050_init();
     // Program
-    printf("PICO and MPU6050 are ready\n");
+    // printf("PICO and MPU6050 are ready\n");
     imu_data_t imu;
 
     // Flashing LED to Pico when press 's' and stop flash when press 'x'
@@ -43,6 +44,7 @@ int main()
         */
         
         // elapsed time in milliseconds
+        /*
         int32_t now = to_ms_since_boot(get_absolute_time());
         if (now >= 30000 && now <= 60000){
             //Read all imu value ax, ay, az / gx, gy, gz
@@ -69,8 +71,20 @@ int main()
             gpio_put(PICO_DEFAULT_LED_PIN, 0);
             sleep_ms(20);
         }
+   */
+
+        gpio_put(PICO_DEFAULT_LED_PIN, 1);
+        printf("LED ON\n");
+        sleep_ms(500);
+        
+        gpio_put(PICO_DEFAULT_LED_PIN, 0);
+        printf("LED OFF\n");
+        sleep_ms(500);
+
+
     }
-    return 0;
+
+   return 0 ; 
 }
 
 
