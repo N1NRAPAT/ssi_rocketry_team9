@@ -50,17 +50,17 @@ previous code.
 ### How to use command prompt in ssi_rocketry :
 Our team created particular rule to make thing much more easier by drag files by hand
 
-'''bash
+```bash
    cd SSI_ROCKETRY
    ./run.sh
-'''
+```
 
 After run this command promt line into your terminal it will showing up Question (1-7).
 So you aim to answer which one do you prefer to use started with Configure , Build , Run 
 
 ### Avionic team member :
-1.Ninrapat 
-2.Rohan 
-3.Ahmed
-4.Kene
-5.Saleh 
+   1.Ninrapat 
+   2.Rohan 
+   3.Ahmed
+   4.Kene
+   5.Saleh 
