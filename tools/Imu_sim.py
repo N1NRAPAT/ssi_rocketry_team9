@@ -1,3 +1,12 @@
+'''
+    Task 1 : 
+
+    imu simulation + animation in real time using value pass through USB
+    port from pico to Mac
+
+'''
+
+
 import serial
 import serial.tools.list_ports
 import csv
@@ -10,7 +19,7 @@ from math import radians
 import os
 
 # Folder to save CSV
-SAVE_FOLDER = "/Users/punnaratsuttinual/SSI_rocketry/data/"
+SAVE_FOLDER = "/Users/punnaratsuttinual/SSI_rocketry/data/" # depend on your local folder 
 
 # ----------- AUTO-DETECT PICO SERIAL PORT (FINAL FIXED VERSION) -----------
 def find_pico_port():
@@ -38,6 +47,7 @@ print(" Searching for Pico serial port…")
 
 port = None
 while port is None:
+    # loop waiting for pico port 
     port = find_pico_port()
     if port is None:
         print(" Waiting for Pico...")
@@ -53,11 +63,11 @@ START_MS = 30000
 STOP_MS = 60000
 
 # CSV setup + file name
-timestamp = datetime.now().strftime("%H_%M_%S")
-csv_path = os.path.join(SAVE_FOLDER, f"imu_flight_{timestamp}.csv")
-csv_file = open(csv_path, "w", newline="")
+timestamp = datetime.now().strftime("%H_%M_%S") # Hour _ Minute _ Second
+csv_path = os.path.join(SAVE_FOLDER, f"imu_flight_{timestamp}.csv") #save file as imu_flight_above name
+csv_file = open(csv_path, "w", newline="") # write mode 
 writer = csv.writer(csv_file)
-writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "time_ms"])
+writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "time_ms"]) # header row
 
 print(" Logging + Simulation started!")
 
@@ -82,37 +92,37 @@ def rotate(points, rx, ry, rz):
         [1, 0, 0],
         [0, np.cos(rx), -np.sin(rx)],
         [0, np.sin(rx), np.cos(rx)]
-    ])
+    ]) # X-axis 
     Ry = np.array([
         [np.cos(ry), 0, np.sin(ry)],
         [0, 1, 0],
         [-np.sin(ry), 0, np.cos(ry)]
-    ])
+    ]) # Y-axis
     Rz = np.array([
         [np.cos(rz), -np.sin(rz), 0],
         [np.sin(rz), np.cos(rz), 0],
         [0, 0, 1]
-    ])
-    return points @ Rx @ Ry @ Rz
+    ]) # Z-axis
+    return points @ Rx @ Ry @ Rz # return 3D 
 
 # MAIN LOOP
-start_time = time.time()
+start_time = time.time() 
 
 while True:
     line = ser.readline().decode().strip()
     parts = line.split(",")
 
-    if len(parts) != 6:
+    if len(parts) != 6: # seperate line by 6 param which are ax, ay, az, gx, gy, gz
         continue
 
-    ax_val, ay_val, az_val, gx, gy, gz = map(int, parts)
+    ax_val, ay_val, az_val, gx, gy, gz = map(int, parts) # map split value with ","
     now = int((time.time() - start_time) * 1000)
 
     # CSV logging (30–60s)
-    if START_MS <= now <= STOP_MS:
-        writer.writerow([ax_val, ay_val, az_val, gx, gy, gz, now])
+    if START_MS <= now <= STOP_MS: # 30000 - 60000 ms
+        writer.writerow([ax_val, ay_val, az_val, gx, gy, gz, now]) # fill values
 
-    if now > STOP_MS:
+    if now > STOP_MS: # over 60000 ms
         print(" Finished logging!")
         break
 
