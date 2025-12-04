@@ -50,8 +50,9 @@ int main()
     uint32_t last_led_toggle = 0;
     const uint32_t led_interval = 300; // toggle LED every 300ms
 
-    while (1) {
-
+}
+    while (1) 
+    {
         int ch = getchar_timeout_us(0); //Get char and non-blocking programming 
         /*
             Assign task mode to Pico like switch fundtion key so I don't need
@@ -133,8 +134,7 @@ int main()
         }
     }
 
-   return 0 ; 
-}
+
 
 
 

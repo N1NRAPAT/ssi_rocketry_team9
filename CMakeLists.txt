@@ -38,6 +38,7 @@ set (SOURCES
     src/main.c
     src/devices/imu.c
     src/data/sdcard.c
+    src/devices/barometric_sensor/MS5611.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
