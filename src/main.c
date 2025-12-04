@@ -43,23 +43,23 @@ int main()
     printf("n = none (Break)\n");
 
     imu_data_t imu;
-    test_mode_t MODE_NONE;
+    test_mode_t mode = MODE_NONE;
     int running = 0 ;
     absolute_time_t start = get_absolute_time(); //Set clock timer 
+    
     bool led_state = false;
     uint32_t last_led_toggle = 0;
     const uint32_t led_interval = 300; // toggle LED every 300ms
 
-}
-    while (1) 
-    {
+
+    while(1) {
         int ch = getchar_timeout_us(0); //Get char and non-blocking programming 
         /*
             Assign task mode to Pico like switch fundtion key so I don't need
             to run code once again 
         */
         if (ch != PICO_ERROR_TIMEOUT) {
-            if (ch == 'i' || ch == 'I')  mode = MODE_IMU;
+            if (ch == 'i' || ch == 'I') mode = MODE_IMU;
             else if (ch == 'b'|| ch =='B') mode = MODE_BARO;
             else if (ch == 'a'|| ch == 'A') mode = MODE_BOTH;
             else if (ch == 'n'|| ch == 'N') mode = MODE_NONE;
@@ -69,20 +69,20 @@ int main()
 
         switch (mode)
         {
-        case MODE_IMU:
+        case MODE_IMU:{
             mpu6050_read_all(&imu);
             printf("Ax:%d,Ay:%d,Az:%d,Gx:%d,Gy:%d,Gz:%d\n",
                 imu.ax, imu.ay, imu.az,
-                imu.gx, imu.gy, imu.gz )
+                imu.gx, imu.gy, imu.gz );
             break;
-
-        case MODE_BARO:
+            }
+        case MODE_BARO:{
             float p = MS5611_read_pressure();
             float t = MS5611_read_temperature();
             printf("BARO | P:%.2f Pa  T:%.2f C\n", p, t);
             break;
-
-        case MODE_BOTH:
+        }
+        case MODE_BOTH:{
             mpu6050_read_all(&imu);
             float p = MS5611_read_pressure();
             float t = MS5611_read_temperature();
@@ -91,8 +91,7 @@ int main()
                     imu.gx, imu.gy, imu.gz,
                     p, t);
             break;
-    
-        case MODE_NONE:    
+        }  
         default:
             break;
         }
@@ -103,7 +102,7 @@ int main()
             Testing 1 : IMU ouput value + basic simulation 
             Testing 2 : IMU output in 30s to 1 min to SD-Card then convert to .csv file and save in new folder 
         */
-        while (running != 0){
+        if (running != 0){
         // elapsed time in milliseconds
         int32_t now = to_ms_since_boot(get_absolute_time());
         if (now >= 30000 && now <= 60000){
@@ -133,8 +132,8 @@ int main()
             }
         }
     }
+    return 0 ;
 
-
-
+}
 
 
