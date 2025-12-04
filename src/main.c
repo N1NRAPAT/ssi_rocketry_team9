@@ -53,50 +53,58 @@ int main()
 
 
     while(1) {
-        int ch = getchar_timeout_us(0); //Get char and non-blocking programming 
+        
         /*
             Assign task mode to Pico like switch fundtion key so I don't need
             to run code once again 
         */
-        if (ch != PICO_ERROR_TIMEOUT) {
+        for (int i = 0 ; i< 10 ; i++){
+            int ch = getchar_timeout_us(0); //Get char and non-blocking programming 
+            if (ch != PICO_ERROR_TIMEOUT) {
             if (ch == 'i' || ch == 'I') mode = MODE_IMU;
             else if (ch == 'b'|| ch =='B') mode = MODE_BARO;
             else if (ch == 'a'|| ch == 'A') mode = MODE_BOTH;
             else if (ch == 'n'|| ch == 'N') mode = MODE_NONE;
 
             printf("Mode change: %d\n", mode);
+            fflush(stdout);
+            }
+            sleep_ms(2);
         }
 
         switch (mode)
         {
         case MODE_IMU:{
-            mpu6050_read_all(&imu);
-            printf("Ax:%d,Ay:%d,Az:%d,Gx:%d,Gy:%d,Gz:%d\n",
-                imu.ax, imu.ay, imu.az,
-                imu.gx, imu.gy, imu.gz );
+            // mpu6050_read_all(&imu);
+            // printf("Ax:%d,Ay:%d,Az:%d,Gx:%d,Gy:%d,Gz:%d\n",
+            //     imu.ax, imu.ay, imu.az,
+            //     imu.gx, imu.gy, imu.gz );
+            printf("IMU\n");
             break;
             }
         case MODE_BARO:{
-            float p = MS5611_read_pressure();
-            float t = MS5611_read_temperature();
-            printf("BARO | P:%.2f Pa  T:%.2f C\n", p, t);
+            // float p = MS5611_read_pressure();
+            // float t = MS5611_read_temperature();
+            // printf("BARO | P:%.2f Pa  T:%.2f C\n", p, t);
+            printf("BARO\n");
             break;
         }
         case MODE_BOTH:{
-            mpu6050_read_all(&imu);
-            float p = MS5611_read_pressure();
-            float t = MS5611_read_temperature();
-            printf("ALL | AX:%d AY:%d AZ:%d  GX:%d GY:%d GZ:%d  P:%.2f Pa T:%.2f C\n",
-                    imu.ax, imu.ay, imu.az,
-                    imu.gx, imu.gy, imu.gz,
-                    p, t);
+            // mpu6050_read_all(&imu);
+            // float p = MS5611_read_pressure();
+            // float t = MS5611_read_temperature();
+            // printf("ALL | AX:%d AY:%d AZ:%d  GX:%d GY:%d GZ:%d  P:%.2f Pa T:%.2f C\n",
+            //         imu.ax, imu.ay, imu.az,
+            //         imu.gx, imu.gy, imu.gz,
+            //         p, t);
+            printf("IMU + BARO\n");
             break;
         }  
         default:
             break;
         }
         
-        sleep_ms(200) ; 
+        sleep_ms(500) ; 
 
         /* Week 3 : 
             Testing 1 : IMU ouput value + basic simulation 

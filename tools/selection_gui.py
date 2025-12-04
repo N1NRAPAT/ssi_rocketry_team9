@@ -2,10 +2,10 @@ import tkinter as tk
 import serial
 import threading
 
-PORT = "/dev/tty.usbmodem0000000000001"
+PORT = "/dev/cu.usbmodem11201"
 BAUD = 115200
 
-ser = serial.Serial(PORT, BAUD, timeout=0.1)
+ser = serial.Serial(PORT, BAUD, timeout=0.05)
 
 def send_cmd(cmd):
     ser.write(cmd.encode("ascii"))
