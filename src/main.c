@@ -53,7 +53,19 @@ int main()
 
 
     while(1) {
-        
+         
+        //Flashing led
+        if(running == 0 ){
+            gpio_put(PICO_DEFAULT_LED_PIN, 1);
+            sleep_ms(200);
+            running = 1 ; 
+        }
+        else {
+            gpio_put(PICO_DEFAULT_LED_PIN, 0);
+            sleep_ms(200);
+            running = 0 ;
+        }
+         
         /*
             Assign task mode to Pico like switch fundtion key so I don't need
             to run code once again 
