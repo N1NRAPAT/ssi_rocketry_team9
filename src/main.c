@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "hardware/rtc.h"
 #include "math.h"
 #include "devices/imu.h" // imu
 #include "devices/barometric_sensor/MS5611.h" // Baro
 #include "devices/filter/kalman_fusion.h" // Kalman all 
-// #include "data/sdcard.h"
+#include "data/sd_logger.h"
 
 #define LED_PIN PICO_DEFAULT_LED_PIN
 
@@ -80,6 +81,14 @@ int main()
     mpu6050_init(); //4,5
     MS5611_init();
 
+    // Sd Card initialize
+    rtc_init();
+
+    if (!sd_logger_init("logs")) 
+    {
+    printf("SD LOGGER FAILED\n");
+    }
+
     //Kalman filter
     altitude_kf_init(&altKF);
     imu_kf_init(&pitchKF);
@@ -103,6 +112,7 @@ int main()
     uint32_t last_led_toggle = 0;
     const uint32_t led_interval = 300; // toggle LED every 300ms
 
+    uint32_t tick = 0; // loop time stamp for .csv files 
 
     while(true) 
     {    
@@ -142,6 +152,10 @@ int main()
         {
             float pitch = imu_kalman_calculation(&imu , dt_imu) ; 
             printf("PITCH: %.2f\n" ,pitch );
+            // sd_logging to sd_card in this case time, pitch , 0 ,0 ,0 , mode 
+            sd_logger_printf("%lu,%.2f,0,0,0,%d\n",
+                     tick, pitch, mode); 
+
             break;
         }
         case MODE_BARO:
@@ -149,6 +163,9 @@ int main()
             BaroOutput baro = baro_kalman_calculation(dt_baro);
             printf("ALT=%.2f  VEL=%.2f\n",
                     baro.altitude , baro.velocity);
+            // sd_logging to sd_card in this case time,0, 0,alt,vel, mode        
+            sd_logger_printf("%lu,0,0,%.2f,%.2f,%d\n",
+                     tick, baro.altitude, baro.velocity, mode);
             break;
         }
         case MODE_BOTH:
@@ -165,14 +182,19 @@ int main()
             BaroOutput baro = baro_kalman_calculation(dt_baro);
             printf("PITCH: %.2f ALT=%.2f  VEL=%.2f\n",
                     pitch , baro.altitude , baro.velocity);
+            // sd_logging to sd_card in this case time,pitch,0,alt,vel, mode        
+            sd_logger_printf("%lu,%.2f,0,%.2f,%.2f,%d\n",
+                     tick, pitch, baro.altitude, baro.velocity, mode);
             break;
         }  
         default:
             break;
         }
-        sleep_ms(10) ; 
+        tick++; 
+        sleep_ms(10) ; // 100 hz
 
         }
+    sd_logger_close();
     return 0 ;
 }
 

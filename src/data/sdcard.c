@@ -1,12 +1,12 @@
 #include "sdcard.h"
 #include <stdio.h>
 #include <string.h>
-
-#include "ff.h"
 #include "sd_card.h"   // gives sd_init_driver()
+
 
 FATFS fs;
 FIL file;
+static bool file_open = false;
 
 bool sdcard_init(void) {
     // Initialise the SD driver (SPI + card setup handled inside library)
