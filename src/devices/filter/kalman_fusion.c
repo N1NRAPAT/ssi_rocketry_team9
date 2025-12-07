@@ -1,4 +1,4 @@
-#include "fusion.h"
+#include "kalman_fusion.h"
 #include <math.h>
 
 #define SEA_LEVEL_PRESSURE 101325.0f
