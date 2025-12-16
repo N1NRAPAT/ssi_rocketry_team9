@@ -1,3 +1,6 @@
 build
 !.vscode/*
 run.sh
+# Zed
+.zed/
+.cache/
