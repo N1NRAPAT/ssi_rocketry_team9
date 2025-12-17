@@ -38,7 +38,6 @@ IMUKalman rollKF;
     Additional to 1 is Gps output of logitude and latitude 
     2. Assemble gps into main choices in python
     3. SD - card allocated 
-
 */
 
 // output function 
@@ -73,34 +72,28 @@ int main()
     stdio_init_all();
     sleep_ms(3000); // Wait 3 s but if I have switch i'll del this wait 
 
-    // Pico LED  
-    gpio_init(LED_PIN);
+    gpio_init(LED_PIN); // LED 
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
-    // initialize sensors
     mpu6050_init(); //4,5
     MS5611_init();
 
     // Sd Card initialize
     rtc_init();
-
     if (!sd_logger_init("logs")) 
     {
     printf("SD LOGGER FAILED\n");
     }
-
     //Kalman filter
     altitude_kf_init(&altKF);
     imu_kf_init(&pitchKF);
     imu_kf_init(&rollKF);
-
     // Choices for output in python 
     printf("Pico ready, Command: \n");
     printf("i = imu sensor run test \n");
     printf("b = barometer sensor run test \n");
     printf("a = all sensors run \n");
     printf("n = none (Break)\n");
-
     // In core code variable
     imu_data_t imu;
     test_mode_t mode = MODE_NONE;
@@ -111,7 +104,6 @@ int main()
     bool led_state = false;
     uint32_t last_led_toggle = 0;
     const uint32_t led_interval = 300; // toggle LED every 300ms
-
     uint32_t tick = 0; // loop time stamp for .csv files 
 
     while(true) 
@@ -145,7 +137,9 @@ int main()
             }
             sleep_ms(2);
         }
-
+        /*
+            Switch mode of select sensor to show 
+         */
         switch (mode)
         {
         case MODE_IMU:

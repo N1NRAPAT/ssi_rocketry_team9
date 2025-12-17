@@ -10,15 +10,16 @@
     and receive value realtime from imu sensor known as gyroscope sensor + 
     Acc sensor 
 
-    
 */
 
+// Declare global function of reading adc in pins leg of imu sensor
 
-// --- Internal helper functions ---
+// Register pin of i2c to pico
 static void mpu_write(uint8_t reg, uint8_t data) {
     uint8_t buf[2] = { reg, data };
     i2c_write_blocking(i2c0, MPU6050_ADDR, buf, 2, false);
 }
+
 
 static void mpu_read(uint8_t reg, uint8_t *buf, int len) {
     i2c_write_blocking(i2c0, MPU6050_ADDR, &reg, 1, true);
@@ -36,6 +37,7 @@ void mpu6050_init() {
     sleep_ms(50);
 }
 
+// Raw output from imu sensor
 void mpu6050_read_all(imu_data_t *imu) {
     uint8_t raw[14];
     mpu_read(0x3B, raw, 14);
@@ -47,4 +49,6 @@ void mpu6050_read_all(imu_data_t *imu) {
     imu->gx = make_word(raw, 8);
     imu->gy = make_word(raw, 10);
     imu->gz = make_word(raw, 12);
+    
+    // call this function in main : mpu6050_read_all(&imu_data_t)
 }
