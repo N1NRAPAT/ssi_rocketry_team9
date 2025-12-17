@@ -67,11 +67,12 @@ BaroOutput baro_kalman_calculation(float dt_baro)
 
     return out ; 
 }
-int main()
-{
-    stdio_init_all();
-    sleep_ms(3000); // Wait 3 s but if I have switch i'll del this wait 
 
+float reach_altitude(float target_altitude, float current_altitude, float velocity);
+
+int main()
+{    
+    sleep_ms(3000); // Wait 3 s but if I have switch i'll del this wait 
     gpio_init(LED_PIN); // LED 
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
@@ -84,16 +85,19 @@ int main()
     {
     printf("SD LOGGER FAILED\n");
     }
+
     //Kalman filter
     altitude_kf_init(&altKF);
     imu_kf_init(&pitchKF);
     imu_kf_init(&rollKF);
+    
     // Choices for output in python 
     printf("Pico ready, Command: \n");
     printf("i = imu sensor run test \n");
     printf("b = barometer sensor run test \n");
     printf("a = all sensors run \n");
     printf("n = none (Break)\n");
+    
     // In core code variable
     imu_data_t imu;
     test_mode_t mode = MODE_NONE;
@@ -106,6 +110,7 @@ int main()
     const uint32_t led_interval = 300; // toggle LED every 300ms
     uint32_t tick = 0; // loop time stamp for .csv files 
 
+    
     while(true) 
     {    
         // dt for barometer + kalman 
@@ -192,4 +197,29 @@ int main()
     return 0 ;
 }
 
+// main condition of rocket 
+float reach_altitude(float target_altitude, float current_altitude, float velocity) {
+    float target_altitude_m = target_altitude * 0.3048;
+    float current_altitude_m = current_altitude;
+    bool reached = false;
+    // Current altitude in meters
+    float time_to_reach = (target_altitude_m - current_altitude_m) / velocity; // V = s/t
+    while(!reached){
+        // Check if the rocket has reached the target altitude
+        if (current_altitude_m >= target_altitude_m) {
+            printf("Rocket has reached the target altitude!\n");
+            // send to ground station via radio
+            sd_logger_printf("Rocket has reached the target altitude!\n");
+            reached = true;
+        }
+        if (current_altitude_m < target_altitude_m) {
+            printf("Rocket has not reached the target altitude!\n");
+            // send to ground station via radio
+            sd_logger_printf("Rocket has not reached the target altitude!\n");
+            reached = false;
+        }
+    }
+    
+    return time_to_reach , reached; 
+}
 
