@@ -217,8 +217,7 @@ float reach_altitude(float target_altitude, float current_altitude, float veloci
             sd_logger_printf("Rocket has not reached the target altitude!\n");
             reached = false;
         }
+        return time_to_reach , reached; 
     }
-    
-    return time_to_reach , reached; 
 }
 

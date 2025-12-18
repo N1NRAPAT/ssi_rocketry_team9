@@ -1,5 +1,14 @@
-# ARCs Team 9 : Team Sunfall
+# ARCs Team 9 : ICARIAN APOGEE
 
+
+## Introduction of our group : 
+Our team decide to participate in ssi-society to develop a rocket that can reach the stratosphere and beyond. We are a group of passionate engineers student that are dedicated our hobby time to develop technologies and contribute to how to design rockeet in real world situation. We are not aim to make it fastest or most efficient rocket but we are aim to make it more reliable and safe rocket. However, the main motivation that always drive us to aganist the competition is to learn and having time during the competition as much as possible.
+
+## Roadmap & Workflow
+
+<p align="center">
+  <img src="data/document_image/flowchart_servo_fins.png" width="850">
+</p>
 
 
 ## Pin GPIO :
@@ -9,7 +18,7 @@
 ### Pin register by :
 
 1. **I2C0 — For IMU + Barometer**
-   * SDA → GPIO 4
+   * SDA → GPIO 4 
    * SCL → GPIO 5
 
 2. **UART1 — For GPS**
@@ -34,57 +43,64 @@
    * GPS → 5V
    * All grounds → GND
 
-## Progress : 
-### From 28 Nov 2025 until now 
-
-Our Avionic team have been discuss to split rough task into smaller task by setting goal and achivement 
-during procession of working on code and stuff which our team more focus on senser, control and stablization
-of rocket. However, by two to three week, avionic team start on build fundamental resources of core control
-system in plane so contain with IMU:MPU6050, BAROMETER:M5611, and MicroSD-Card all these coming together in 
-previous code.
+--- 
 
 
+### Github workflow :
 
-
-## Run : Command
-### How to use command prompt in ssi_rocketry :
-Our team created particular rule to make thing much more easier by drag files by hand
-
+**Commit code**
 ```bash
-   cd SSI_ROCKETRY
-   ./run.sh
+    cd SSI_ROCKETRY
+    git add .
+    git commit -m "Your comments"
 ```
 
+So what is commit files ? Ans: Commit files are the changes that you want to save in your repository. When you commit your changes, you are saving a snapshot of your project at that moment in time. This allows you to track changes over time and revert to previous versions if needed.
 
-![Terminal_figure1](/Users/punnaratsuttinual/Desktop/figure_1_prompt.png)
 
-After run this command promt line into your terminal it will showing up Question (1-7).
-So you aim to answer which one do you prefer to use started with Configure , Build , Run 
-
-## When finish using code : 
-
-### Make sure you commit and push everything in Github !
-
-**Normal push :**
-
+**Commit gitignore:**
 ```bash
-   cd SSI_ROCKETRY
-   git add .
-   git commit -m "Your comments"
-   git push
-```
-**Ignored file push:**
-
-```bash
-   git add .gitignore
-   git commit -m "update gitignore"
-   git push
+    git add .gitignore
+    git commit -m "update gitignore"
 ```
 
-### Avionic team member :
+So what is gitignore ? Ans: Gitignore is a file that tells git which files to ignore when committing changes. It is used to exclude files that are not relevant to the project, such as temporary files or build artifacts.
 
-   1. Ninrapat 
-   2. Rohan 
-   3. Ahmed
-   4. Kene
-   5. Saleh 
+**Branch repository**
+```bash
+    git branch <branch_name>
+    git checkout <branch_name>
+```
+
+So what is branch repository ? Ans: Branch repository is a feature of git that allows you to create a separate line of development within your repository. This is useful when you want to work on a new feature or fix a bug without affecting the main codebase.
+
+**Merge branch**
+```bash
+    git merge <branch_name>
+```
+
+So what is merge branch ? Ans: Merge branch is a feature of git that allows you to combine changes from one branch into another. This is useful when you want to integrate changes from a feature branch into the main codebase.
+
+**pull request**
+```bash
+    git pull <remote_name> <branch_name>
+```
+So what is pull request ? Ans: Pull request is a feature of git that allows you to request changes from one branch into another. This is useful when you want to integrate changes from a feature branch into the main codebase.
+
+**push**
+```bash
+    git push <remote_name> <branch_name>
+```
+So what is push ? Ans: Push is a feature of git that allows you to upload changes from your local repository to a remote repository. This is useful when you want to share your changes with others or back them up.
+
+
+
+### **Avionic team member :**
+
+   1. Ninrapat (Overall-code-management)
+   2. Rohan    (Avionic lead)
+   3. Ahmed    (Power and Design) 
+   4. Kene     (Electric and Design)
+   5. Saleh    (Simulation post flight)
+   
+   
