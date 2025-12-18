@@ -31,49 +31,48 @@ AltitudeKF altKF;
 IMUKalman pitchKF;
 IMUKalman rollKF;
 
-/* After week 2 of assembly PDR parts (7 Dec 2025)
-    
-    What I've done by now : 
-    1. Choices of output ( IMU , BARO ) 
-    Additional to 1 is Gps output of logitude and latitude 
-    2. Assemble gps into main choices in python
-    3. SD - card allocated 
-*/
-
-// output function 
+//...............................................................................Output function 
 float imu_kalman_calculation(imu_data_t *imu, float dt_imu)
 {
-    // Call initialize function for mpu6050
-    mpu6050_read_all(imu);
-    float accel_pitch = atan2f(imu->ay, imu->az) * 57.3f;
-    float gyro_pitch  = imu->gy / 131.0f;
-    // update to kalman
-    float KF_pitch = imu_kf_update(&pitchKF, accel_pitch, gyro_pitch, dt_imu);
+    mpu6050_read_all(imu); //....................................................Call initialize function for mpu6050
+    float accel_pitch = atan2f(imu->ay, imu->az) * 57.3f;//......................Calculation of pitch angle using accelerometer 
+    float gyro_pitch  = imu->gy / 131.0f; //.....................................Calculation of pitch angle using gyroscope 
+    float KF_pitch = imu_kf_update(&pitchKF, accel_pitch, gyro_pitch, dt_imu);//.Update kalman filter overtime 
     
     return KF_pitch; 
 }
 BaroOutput baro_kalman_calculation(float dt_baro)
 {
     BaroOutput out;
+    float pressure = MS5611_read_pressure();//....................................Set pressure as a variable to read pressure from MS5611
+    float raw_alt = pressure_to_altitude(pressure);//.............................Function read pressure and convert to altitude
+    altitude_kf_update(&altKF,raw_alt, dt_baro);//................................Parameter :(AltitudeKF *kf, float measured_alt, float dt)
 
-    // Function read pressure and convert to altitude
-    float pressure = MS5611_read_pressure() ;
-    float raw_alt = pressure_to_altitude(pressure);
-    // Parameter :(AltitudeKF *kf, float measured_alt, float dt)
-    altitude_kf_update(&altKF,raw_alt, dt_baro);
-
-    out.altitude = altKF.h;
-    out.velocity = altKF.v;
+    out.altitude = altKF.h;//....................................................Set altitude as a variable to read altitude from altitude_kf_update
+    out.velocity = altKF.v;//....................................................Set velocity as a variable to read velocity from altitude_kf_update
 
     return out ; 
 }
 
 float reach_altitude(float target_altitude, float current_altitude, float velocity);
 
+    /*  Christmas Brea tas for Avionics team 9 Icarian Apogee 
+    
+    Inside main loop program we are doing test 1-4 : 
+    Test 1 : splits test each sensor in order of Imu , Baro and Gps. Then showing the value in serial output of main python file 
+    Test 2 : integrate all sensors in one main and output the value to external python file
+    Test 3 : use test 2 as a reference to implement a more complex algorithm also logger value into SD card as .csv file
+    Test 4 : install radio into the main loop and send data to ground station
+    
+    Note : dateset from sd card send them to python as the next precess of work which is to analyze the data and make a conclusion about the performance of the rocket.
+    */
+
+// 18 Dec 2025    
 int main()
 {    
-    sleep_ms(3000); // Wait 3 s but if I have switch i'll del this wait 
-    gpio_init(LED_PIN); // LED 
+    sleep_ms(3000);//............................................................Wait 3 s but if I have switch i'll del this wait 
+   
+    gpio_init(LED_PIN); 
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
     mpu6050_init(); //4,5
@@ -197,7 +196,7 @@ int main()
     return 0 ;
 }
 
-// main condition of rocket 
+// This is the main function of the rocket that uses to sayy if the rocket has reached the target altitude or it near the target altitude?
 float reach_altitude(float target_altitude, float current_altitude, float velocity) {
     float target_altitude_m = target_altitude * 0.3048;
     float current_altitude_m = current_altitude;
