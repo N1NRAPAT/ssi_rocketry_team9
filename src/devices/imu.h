@@ -4,6 +4,7 @@
 
 #define MPU6050_ADDR 0x68
 
+// struct variable of 6 axis of imu_data_t
 typedef struct {
     int16_t ax, ay, az;
     int16_t gx, gy, gz;

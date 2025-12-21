@@ -7,11 +7,11 @@
 
 // Altitude Kalman filter
 typedef struct {
-    float h;      // altitude (m)
-    float v;      // vertical velocity (m/s)
-    float P[2][2];
-    float R;
-    float Q;
+    float h;//.........altitude (m)
+    float v;//.........vertical velocity (m/s)
+    float P[2][2];//...covariance matrix
+    float R;//.........measurement noise covariance
+    float Q;//.........process noise covariance
 } AltitudeKF;
 
 void altitude_kf_init(AltitudeKF *kf);
@@ -20,13 +20,13 @@ void altitude_kf_update(AltitudeKF *kf, float measured_alt, float dt);
 
 // Imu Kalman filter
 typedef struct {
-    float angle;   // estimated angle (deg)
-    float bias;    // gyro bias (deg/s)
-    float rate;    // unbiased rate
-    float P[2][2]; // covariance
-    float Q_angle;
-    float Q_bias;
-    float R_measure;
+    float angle;//.......estimated angle (deg)
+    float bias;//........gyro bias (deg/s)
+    float rate;//........unbiased rate (deg/s)
+    float P[2][2];//.....covariance matrix
+    float Q_angle;//.....process noise covariance for angle
+    float Q_bias;//......process noise covariance for bias
+    float R_measure;//...measurement noise covariance for rate
 } IMUKalman;
 
 void imu_kf_init(IMUKalman *kf);

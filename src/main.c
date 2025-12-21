@@ -75,7 +75,7 @@ int main()
     gpio_init(LED_PIN); 
     gpio_set_dir(LED_PIN, GPIO_OUT);
 
-    mpu6050_init(); //4,5
+    mpu6050_init(); 
     MS5611_init();
 
     // Sd Card initialize
