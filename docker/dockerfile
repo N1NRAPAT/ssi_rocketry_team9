@@ -1,0 +1,9 @@
+FROM python:3.9-slim-buster
+WORKDIR /workspace/tools
+
+COPY tools/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY tools/ .
+
+CMD ["python", "main.py"]
