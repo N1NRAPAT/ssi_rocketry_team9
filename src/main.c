@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
+#include "pico/cyw43_arch.h"
 #include "hardware/i2c.h"
 #include "hardware/rtc.h"
 #include "math.h"
@@ -176,7 +177,7 @@ int main()
             uint32_t now_ms = to_ms_since_boot(get_absolute_time());
             if (now_ms - last_led_toggle >= led_interval)
             {
-                led_state = !led_state;
+                led_state = !led_state; 
                 gpio_put(LED_PIN, led_state);
                 last_led_toggle = now_ms;
             }

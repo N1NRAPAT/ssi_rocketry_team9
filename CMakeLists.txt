@@ -23,7 +23,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico)
+set(PICO_BOARD pico_w)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -62,6 +62,7 @@ target_link_libraries(SSI_rocketry
         hardware_rtc 
         hardware_spi
         FatFs_SPI
+        pico_cyw43_arch_none
         )
 
 # Add the standard include files to the build
