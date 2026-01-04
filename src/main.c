@@ -1,13 +1,15 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
-#include "hardware/i2c.h"
 #include "hardware/rtc.h"
+#include "hardware/i2c.h"                     //I2C
+#include "hardware/spi.h"                     //SPI
 #include "math.h"
 #include "devices/imu.h"                      // imu
 #include "devices/barometric_sensor/MS5611.h" // Baro
 #include "devices/filter/kalman_fusion.h"     // Kalman all
-#include "data/sd_logger.h"
+// #include "data/sd_logger.h"
+
 
 // Select mode struct
 typedef enum
@@ -52,7 +54,6 @@ BaroOutput baro_kalman_calculation(float dt_baro)
 
     return out;
 }
-
 bool reach_altitude(float target_altitude, float current_altitude, float velocity);
 
 /*  
@@ -68,27 +69,70 @@ Note : dateset from sd card send them to python as the next precess of work whic
 
 int main()
 {
-    sleep_ms(1000); //............................................................Wait 3 s but if I have switch i'll del this wait
 
-    if (cyw43_arch_init()) {
-        printf("CYW43 init failed\n");
-        return 1;
-    }
     stdio_init_all();
-    mpu6050_init();
+
+    // I2C Pin 
+    #define I2C_SDA_PIN 4
+    #define I2C_SCL_PIN 5
+
+    // I2C calling ->
+    i2c_init(i2c0, 100 * 1000);
+    gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA_PIN);
+    gpio_pull_up(I2C_SCL_PIN);
+
+    // LED -> initialized 
+    if (cyw43_arch_init()) {
+        while (1) {
+            sleep_ms(1000); // init failed
+        }
+    }
+
+    // IMU -> MPU6050
+    bool imu_ok = mpu6050_detect();
+    if (imu_ok) {
+        mpu6050_init();
+        printf("IMU OK\n");
+    } else {
+        printf("IMU NOT FOUND\n");
+    }
+
+    // Baro -> MS5611 
     MS5611_init();
 
+
     // Sd Card initialize
-    rtc_init();
-    if (!sd_logger_init("logs"))
-    {
-        printf("SD LOGGER FAILED\n");
-    }
+    // rtc_init();
+    // bool sd_ok = false;
+    // absolute_time_t sd_try_time = get_absolute_time();
+
 
     // Kalman filter
     altitude_kf_init(&altKF);
     imu_kf_init(&pitchKF);
     imu_kf_init(&rollKF);
+
+
+    // In core code variable
+    imu_data_t imu;
+    test_mode_t mode = MODE_NONE;
+    absolute_time_t start_imu = get_absolute_time();  // Set clock timer for imu
+    absolute_time_t start_baro = get_absolute_time(); // Set clock timer for baro
+    int running = 0;
+
+
+    // LED 
+    bool led_state = false;
+    absolute_time_t last_led_time;
+    last_led_time = get_absolute_time();
+
+
+    // SENSE
+    uint32_t tick = 0;                 // loop time stamp for .csv files
+    float altitude_target = 2125 ; // target altitude is correct in ft 
+
 
     // Choices for output in python
     printf("Pico ready, Command: \n");
@@ -97,26 +141,18 @@ int main()
     printf("a = all sensors run \n");
     printf("n = none (Break)\n");
 
-    // In core code variable
-    imu_data_t imu;
-    test_mode_t mode = MODE_NONE;
-    int running = 0;
-    absolute_time_t start_imu = get_absolute_time();  // Set clock timer for imu
-    absolute_time_t start_baro = get_absolute_time(); // Set clock timer for baro
-
-    bool led_state = false;
-    uint32_t last_led_toggle = 0;
-    const uint32_t led_interval = 300; // toggle LED every 300ms
-    uint32_t tick = 0;                 // loop time stamp for .csv files
-    float altitude_target = 2125 ; // target altitude is correct in ft 
-
+    
     while (true)
     {
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-        sleep_ms(500);
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        sleep_ms(500);
-        
+        // LED blinking for every seccond 
+        absolute_time_t now = get_absolute_time();
+        if (absolute_time_diff_us(last_led_time, now) >= 1000000) // 1 second
+        {
+            led_state = !led_state;
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
+            last_led_time = now;
+        }
+
         // dt for barometer + kalman
         absolute_time_t now_baro = get_absolute_time();
         float dt_baro = absolute_time_diff_us(start_baro, now_baro) / 1e6f;
@@ -127,11 +163,8 @@ int main()
         float dt_imu = absolute_time_diff_us(start_imu, now_imu) / 1e6f;
         start_imu = now_imu;
 
-        /*
-            Assign task mode to Pico like switch function key so I don't need
-            to run code once again
-        */
 
+        // Case pattern send to python code via Serial port from PICO W
         for (int i = 0; i < 10; i++)
         {
             int ch = getchar_timeout_us(0); // Get char and non-blocking programming
@@ -150,19 +183,16 @@ int main()
             }
             sleep_ms(2);
         }
+     
         /*
-            Switch mode of select sensor to show
-         */
+            Switch Case for testing each components before put them all at once 
+        */
         switch (mode)
         {
         case MODE_IMU:
         {
             float pitch = imu_kalman_calculation(&imu, dt_imu);
             printf("PITCH: %.2f\n", pitch);
-            // sd_logging to sd_card in this case time, pitch , 0 ,0 ,0 , mode
-            sd_logger_printf("%lu,%.2f,0,0,0,%d\n",
-                             tick, pitch, mode);
-
             break;
         }
         case MODE_BARO:
@@ -170,66 +200,19 @@ int main()
             BaroOutput baro = baro_kalman_calculation(dt_baro);
             printf("ALT=%.2f  VEL=%.2f\n",
                    baro.altitude, baro.velocity);
-            // sd_logging to sd_card in this case time,0, 0,alt,vel, mode
-            sd_logger_printf("%lu,0,0,%.2f,%.2f,%d\n",
-                             tick, baro.altitude, baro.velocity, mode);
-            break;
-        }
-        case MODE_BOTH:
-        {
-            // blink led evert 300 ms
-            uint32_t now_ms = to_ms_since_boot(get_absolute_time());
-            if (now_ms - last_led_toggle >= led_interval)
-            {
-                led_state = !led_state; 
-                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
-                last_led_toggle = now_ms;
-            }
-
-            float pitch = imu_kalman_calculation(&imu, dt_imu);
-            BaroOutput baro = baro_kalman_calculation(dt_baro);
-            printf("PITCH: %.2f ALT=%.2f  VEL=%.2f\n",
-                   pitch, baro.altitude, baro.velocity);
-            // sd_logging to sd_card in this case time,pitch,0,alt,vel, mode
-            sd_logger_printf("%lu,%.2f,0,%.2f,%.2f,%d\n",
-                             tick, pitch, baro.altitude, baro.velocity, mode);
             break;
         }
         default:
             break;
         }
         tick++;
-        sleep_ms(10); // 100 hz
     }
-    sd_logger_close();
-    return 0;
+    
 }
 
 // This is the main function of the rocket that uses to sayy if the rocket has reached the target altitude or it near the target altitude?
 bool reach_altitude(float target_altitude, float current_altitude, float velocity)
 {
-    float target_altitude_m = target_altitude * 0.3048;
-    float current_altitude_m = current_altitude;
-    bool reached = false;
-    // Current altitude in meters
-    float time_to_reach = (target_altitude_m - current_altitude_m) / velocity; // V = s/t
-    while (!reached)
-    {
-        // Check if the rocket has reached the target altitude
-        if (current_altitude_m >= target_altitude_m)
-        {
-            printf("Rocket has reached the target altitude!\n");
-            // send to ground station via radio
-            sd_logger_printf("Rocket has reached the target altitude!\n");
-            reached = true;
-        }
-        if (current_altitude_m < target_altitude_m)
-        {
-            printf("Rocket has not reached the target altitude!\n");
-            // send to ground station via radio
-            sd_logger_printf("Rocket has not reached the target altitude!\n");
-            reached = false;
-        }
-        return time_to_reach, reached;
-    }
+    float target_altitude_m = target_altitude * 0.3048f;
+    return current_altitude >= target_altitude_m;
 }

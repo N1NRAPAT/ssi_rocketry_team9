@@ -30,6 +30,24 @@ static int16_t make_word(uint8_t *buf, int idx) {
     return (buf[idx] << 8) | buf[idx + 1];
 }
 
+bool mpu6050_detect(void)
+{
+    uint8_t whoami = 0;
+    uint8_t reg = 0x75;
+
+    int ret = i2c_write_timeout_us(
+        i2c0, MPU6050_ADDR, &reg, 1, true, 2000
+    );
+    if (ret < 0) return false;
+
+    ret = i2c_read_timeout_us(
+        i2c0, MPU6050_ADDR, &whoami, 1, false, 2000
+    );
+    if (ret < 0) return false;
+
+    return (whoami == 0x68);
+}
+
 // --- Public functions ---
 void mpu6050_init() {
     sleep_ms(50);
@@ -52,3 +70,5 @@ void mpu6050_read_all(imu_data_t *imu) {
     
     // call this function in main : mpu6050_read_all(&imu_data_t)
 }
+
+
