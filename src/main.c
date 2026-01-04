@@ -9,8 +9,6 @@
 #include "devices/filter/kalman_fusion.h"     // Kalman all
 #include "data/sd_logger.h"
 
-#define LED_PIN PICO_DEFAULT_LED_PIN
-
 // Select mode struct
 typedef enum
 {
@@ -55,9 +53,9 @@ BaroOutput baro_kalman_calculation(float dt_baro)
     return out;
 }
 
-float reach_altitude(float target_altitude, float current_altitude, float velocity);
+bool reach_altitude(float target_altitude, float current_altitude, float velocity);
 
-/*  Christmas Brea tas for Avionics team 9 Icarian Apogee
+/*  
 
 Inside main loop program we are doing test 1-4 :
 Test 1 : splits test each sensor in order of Imu , Baro and Gps. Then showing the value in serial output of main python file
@@ -68,14 +66,15 @@ Test 4 : install radio into the main loop and send data to ground station
 Note : dateset from sd card send them to python as the next precess of work which is to analyze the data and make a conclusion about the performance of the rocket.
 */
 
-// 18 Dec 2025
 int main()
 {
-    sleep_ms(3000); //............................................................Wait 3 s but if I have switch i'll del this wait
+    sleep_ms(1000); //............................................................Wait 3 s but if I have switch i'll del this wait
 
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
-
+    if (cyw43_arch_init()) {
+        printf("CYW43 init failed\n");
+        return 1;
+    }
+    stdio_init_all();
     mpu6050_init();
     MS5611_init();
 
@@ -113,6 +112,11 @@ int main()
 
     while (true)
     {
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+        sleep_ms(500);
+        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+        sleep_ms(500);
+        
         // dt for barometer + kalman
         absolute_time_t now_baro = get_absolute_time();
         float dt_baro = absolute_time_diff_us(start_baro, now_baro) / 1e6f;
@@ -178,7 +182,7 @@ int main()
             if (now_ms - last_led_toggle >= led_interval)
             {
                 led_state = !led_state; 
-                gpio_put(LED_PIN, led_state);
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_state);
                 last_led_toggle = now_ms;
             }
 
@@ -202,7 +206,7 @@ int main()
 }
 
 // This is the main function of the rocket that uses to sayy if the rocket has reached the target altitude or it near the target altitude?
-float reach_altitude(float target_altitude, float current_altitude, float velocity)
+bool reach_altitude(float target_altitude, float current_altitude, float velocity)
 {
     float target_altitude_m = target_altitude * 0.3048;
     float current_altitude_m = current_altitude;
