@@ -72,6 +72,11 @@ int main()
 
     stdio_init_all();
 
+    // Wait until found usb port 
+    while (!stdio_usb_connected()) {
+    sleep_ms(100);
+    }
+
     // I2C Pin 
     #define I2C_SDA_PIN 4
     #define I2C_SCL_PIN 5
@@ -90,14 +95,25 @@ int main()
         }
     }
 
+
     // IMU -> MPU6050
     bool imu_ok = mpu6050_detect();
-    if (imu_ok) {
-        mpu6050_init();
-        printf("IMU OK\n");
-    } else {
+
+if (imu_ok) {
+    mpu6050_init();
+    printf("IMU OK\n");
+
+    // ---- VERIFY PWR_MGMT_2 (axis enable) ----
+    uint8_t pm2 = 0xFF;
+    i2c_write_blocking(i2c0, MPU6050_ADDR, (uint8_t[]){0x6C}, 1, true);
+    i2c_read_blocking(i2c0, MPU6050_ADDR, &pm2, 1, false);
+    printf("PWR_MGMT_2 = 0x%02X\n", pm2);
+    } 
+    else 
+    {
         printf("IMU NOT FOUND\n");
     }
+
 
     // Baro -> MS5611 
     MS5611_init();
@@ -191,8 +207,11 @@ int main()
         {
         case MODE_IMU:
         {
-            float pitch = imu_kalman_calculation(&imu, dt_imu);
-            printf("PITCH: %.2f\n", pitch);
+            mpu6050_read_all(&imu);
+
+            printf("AX=%d AY=%d AZ=%d GX=%d GY=%d GZ=%d\n",
+                imu.ax, imu.ay, imu.az,
+                imu.gx, imu.gy, imu.gz);
             break;
         }
         case MODE_BARO:

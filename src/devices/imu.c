@@ -51,8 +51,19 @@ bool mpu6050_detect(void)
 // --- Public functions ---
 void mpu6050_init() {
     sleep_ms(50);
-    mpu_write(0x6B, 0x00);   // Wake up
-    sleep_ms(50);
+
+    // Wake up
+    mpu_write(0x6B, 0x00);
+    sleep_ms(10);
+
+    // ENABLE all accel + gyro axes (CRITICAL)
+    mpu_write(0x6C, 0x00);   // PWR_MGMT_2 = 0x00
+
+    // Optional but recommended: set ranges
+    mpu_write(0x1B, 0x00);  // Gyro ±250 dps
+    mpu_write(0x1C, 0x00);  // Accel ±2g
+
+    sleep_ms(10);
 }
 
 // Raw output from imu sensor
