@@ -102,6 +102,7 @@ int main()
 if (imu_ok) {
     mpu6050_init();
     printf("IMU OK\n");
+    sleep_ms(100);
 
     // ---- VERIFY PWR_MGMT_2 (axis enable) ----
     uint8_t pm2 = 0xFF;
@@ -197,7 +198,7 @@ if (imu_ok) {
                 printf("Mode change: %d\n", mode);
                 fflush(stdout);
             }
-            sleep_ms(2);
+            sleep_ms(10);
         }
      
         /*

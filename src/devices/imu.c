@@ -52,18 +52,25 @@ bool mpu6050_detect(void)
 void mpu6050_init() {
     sleep_ms(50);
 
-    // Wake up
-    mpu_write(0x6B, 0x00);
+    // Wake up, select internal clock
+    mpu_write(0x6B, 0x01);
     sleep_ms(10);
 
-    // ENABLE all accel + gyro axes (CRITICAL)
-    mpu_write(0x6C, 0x00);   // PWR_MGMT_2 = 0x00
-
-    // Optional but recommended: set ranges
-    mpu_write(0x1B, 0x00);  // Gyro ±250 dps
-    mpu_write(0x1C, 0x00);  // Accel ±2g
-
+    // Enable all accel + gyro axes
+    mpu_write(0x6C, 0x00);
     sleep_ms(10);
+
+    // RESET signal paths (THIS IS THE MISSING PIECE)
+    mpu_write(0x68, 0x07);   // reset gyro, accel, temp
+    sleep_ms(10);
+
+    // Set ranges (safe defaults)
+    mpu_write(0x1B, 0x00);   // Gyro ±250 dps
+    mpu_write(0x1C, 0x00);   // Accel ±2g
+
+    // Optional but good
+    mpu_write(0x1A, 0x03);   // DLPF config
+    mpu_write(0x19, 0x04);   // Sample rate divider
 }
 
 // Raw output from imu sensor
