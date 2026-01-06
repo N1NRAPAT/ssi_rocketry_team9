@@ -2,7 +2,7 @@ import tkinter as tk
 import serial
 import threading
 
-PORT = "/dev/cu.usbmodem11401"
+PORT = "/dev/cu.usbmodem11401" # Depend on serial port 
 BAUD = 115200
 
 ser = serial.Serial(PORT, BAUD, timeout=0.05)
@@ -36,6 +36,5 @@ def main():
     t.start()
 
     root.mainloop()
-
 if __name__ == "__main__":
     main()

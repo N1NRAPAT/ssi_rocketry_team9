@@ -158,7 +158,6 @@ if (imu_ok) {
     printf("a = all sensors run \n");
     printf("n = none (Break)\n");
 
-    
     while (true)
     {
         // LED blinking for every seccond 
