@@ -235,3 +235,13 @@ bool reach_altitude(float target_altitude, float current_altitude, float velocit
     float target_altitude_m = target_altitude * 0.3048f;
     return current_altitude >= target_altitude_m;
 }
+
+// timing for loggin the value into the sd_card function 
+
+// Sending back the detail of current altitude until reach the apogee via radio signal
+
+// Air brake + push switch 
+
+// Estimate tracjectory of rocket will land on the ground 
+
+
