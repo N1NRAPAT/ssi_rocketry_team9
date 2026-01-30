@@ -93,6 +93,11 @@ So what is pull request ? Ans: Pull request is a feature of git that allows you 
 ```
 So what is push ? Ans: Push is a feature of git that allows you to upload changes from your local repository to a remote repository. This is useful when you want to share your changes with others or back them up.
 
+**Update First month of the year progress**
+
+Our team Avionic did a plenty of work by I have to start with sensor and innovation progress
+IMU one of our team focus on the most for a long time to trying to minimise risk of pointing wrong direction to the rocket so out first exercution was used raw output from imu itself but the thing is when we used raw data we were lost of a millisec data for instance rocket turn 1 - 5 degree in 5 second so it was supposed to show the real value in each of sec like propery one but instead of that it was shown a fractuate of swing in term of output so that why we integrate a mathimatic equation like kalman filter into an our algorithm
+
 
 
 ### **Avionic team member :**

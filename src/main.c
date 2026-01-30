@@ -151,6 +151,9 @@ if (imu_ok) {
     float altitude_target = 2125 ; // target altitude is correct in ft 
 
 
+    int CheckSense = 0 ; 
+
+
     // Choices for output in python
     printf("Pico ready, Command: \n");
     printf("i = imu sensor run test \n");
@@ -199,6 +202,15 @@ if (imu_ok) {
             }
             sleep_ms(10);
         }
+
+        while(CheckSense == 1 ){
+            scanf(%d, "Tell me when you're ready to launch");
+                run() ; 
+            /*
+            This is the function who gonna tell to staff from ground 
+            station to know that rocket is now avaliable
+            */
+        }
      
         /*
             Switch Case for testing each components before put them all at once 
@@ -244,4 +256,10 @@ bool reach_altitude(float target_altitude, float current_altitude, float velocit
 
 // Estimate tracjectory of rocket will land on the ground 
 
+int run() { 
 
+    bool main_valid True ; 
+
+
+
+}

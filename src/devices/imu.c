@@ -89,4 +89,11 @@ void mpu6050_read_all(imu_data_t *imu) {
     // call this function in main : mpu6050_read_all(&imu_data_t)
 }
 
+/* 
+    After I tried to fix the imu. I've found that maybe my imu board 
+    Basically I do think it was because of crack while soldering board
+    or maybe because of read the signal of i2C is not working very well
 
+    26/01/2026
+
+*/ 
