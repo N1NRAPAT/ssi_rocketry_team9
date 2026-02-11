@@ -259,7 +259,5 @@ bool reach_altitude(float target_altitude, float current_altitude, float velocit
 int run() { 
 
     bool main_valid True ; 
-
-
-
+    pass ; 
 }

@@ -24,6 +24,8 @@ static void mpu_write(uint8_t reg, uint8_t data) {
 static void mpu_read(uint8_t reg, uint8_t *buf, int len) {
     i2c_write_blocking(i2c0, MPU6050_ADDR, &reg, 1, true);
     i2c_read_blocking(i2c0, MPU6050_ADDR, buf, len, false);
+    // Read throung raw material via i2c signal 
+
 }
 
 static int16_t make_word(uint8_t *buf, int idx) {
