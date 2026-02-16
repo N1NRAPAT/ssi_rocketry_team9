@@ -36,9 +36,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 set (SOURCES
     src/main.c
-    src/sd_shim.c
     src/devices/imu.c
-    src/data/sd_logger.c
     src/devices/barometric_sensor/MS5611.c
     )
 
@@ -58,8 +56,6 @@ pico_enable_stdio_usb(SSI_rocketry 1)
 target_link_libraries(SSI_rocketry
         pico_stdlib
         hardware_i2c
-        hardware_rtc 
-        hardware_spi
         FatFs_SPI
         pico_cyw43_arch_none
         )
