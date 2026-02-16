@@ -40,7 +40,6 @@ set (SOURCES
     src/devices/imu.c
     src/data/sd_logger.c
     src/devices/barometric_sensor/MS5611.c
-    src/devices/filter/kalman_fusion.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )

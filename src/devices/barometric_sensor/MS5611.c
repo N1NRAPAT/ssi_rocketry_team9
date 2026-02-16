@@ -89,17 +89,27 @@ void MS5611_init(void)
     
     // Verify calibration data is reasonable
     bool valid = true;
+    
+    // Check for zero or 0xFFFF (unconnected sensor)
     for (int i = 1; i <= 6; i++) {
         if (C[i] == 0 || C[i] == 0xFFFF) {
-            printf("BARO: WARNING - Invalid calibration coefficient C[%d] = %u\n", i, C[i]);
+            printf("BARO: ERROR - Invalid calibration coefficient C[%d] = %u\n", i, C[i]);
             valid = false;
         }
     }
     
+    // Check if all values are identical (I2C reading garbage)
+    if (C[1] == C[2] && C[2] == C[3] && C[3] == C[4] && C[4] == C[5] && C[5] == C[6]) {
+        printf("BARO: ERROR - All calibration values identical (%u)\n", C[1]);
+        printf("BARO: This indicates sensor is NOT connected!\n");
+        valid = false;
+    }
+    
     if (valid) {
-        printf("BARO: Initialization complete\n");
+        printf("BARO: Initialization complete - Sensor OK\n");
     } else {
-        printf("BARO: Initialization WARNING - Check sensor connection\n");
+        printf("BARO: INITIALIZATION FAILED - Sensor NOT connected or faulty!\n");
+        printf("BARO: Pressure/altitude readings will be INVALID!\n");
     }
 }
 

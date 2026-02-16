@@ -28,7 +28,6 @@ bool reach_altitude(float target_altitude, float current_altitude);
 
 int main()
 {
-
     stdio_init_all();
 
     // Wait until found usb port 
@@ -64,7 +63,7 @@ int main()
     printf("LED initialized\n\n");
 
 
-    // IMU -> MPU6050
+    // IMU -> MPU6050 : use to re-check working stage of imu
     printf("=== IMU (MPU6050) Detection ===\n");
     bool imu_ok = mpu6050_detect();
 
@@ -97,25 +96,32 @@ int main()
     }
     printf("\n");
 
-    // Baro -> MS5611 
-    printf("=== Barometer (MS5611) Detection ===\n");
-    printf("Initializing barometer...\n");
-    MS5611_init();
-    printf("Barometer initialized\n\n");
+    // --------------------------------------------------------------------
 
+    // Baro -> MS5611 : use to re-check working stage of barometer
+    printf("=== Barometer (MS5611) Detection ===\n");
+    bool baro_ok = MS5611_detect();
+    
+    if (baro_ok) {
+        printf("Barometer detected successfully\n");
+        MS5611_init();
+    } else {
+        printf("Barometer NOT FOUND - check wiring and I2C address!\n");
+    }
+    printf("\n");
+
+    // --------------------------------------------------------------------
 
     // In core code variables
     imu_data_t imu;
     test_mode_t mode = MODE_NONE;
 
-    // LED ticking 
+    // LED ticking
     bool led_state = false;
     absolute_time_t last_led_time = get_absolute_time();
 
     // Loop counter
     uint32_t tick = 0;
-
-    // ---------------------------------------------------------------------
 
     // Choices for output in python
     printf("========================================\n");

@@ -2,6 +2,8 @@ import tkinter as tk
 import serial
 import threading
 
+# This is serial ouput from pico to use as selection
+
 PORT = "/dev/cu.usbmodem11401" # Depend on serial port 
 BAUD = 115200
 
