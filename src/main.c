@@ -14,7 +14,8 @@ typedef enum
     MODE_NONE = 0,
     MODE_IMU,
     MODE_BARO,
-    MODE_BOTH
+    MODE_BOTH,
+    MODE_CSV_LOG  // New: CSV logging mode
 } test_mode_t;
 
 typedef struct
@@ -23,6 +24,19 @@ typedef struct
     float temperature;  // Temperature in °C
     float altitude;     // Calculated altitude in meters
 } BaroOutput;
+
+// CSV data structure
+typedef struct
+{
+    // Note: timestamp is now calculated dynamically as float seconds
+    // IMU data (converted to physical units)
+    float ax_g, ay_g, az_g;           // Acceleration in g's
+    float gx_dps, gy_dps, gz_dps;     // Gyro in degrees/second
+    // Barometer data
+    float pressure_pa;                 // Pressure in Pascals
+    float temperature_c;               // Temperature in Celsius
+    float altitude_m;                  // Altitude in meters
+} SensorData;
 
 bool reach_altitude(float target_altitude, float current_altitude);
 
@@ -63,7 +77,7 @@ int main()
     printf("LED initialized\n\n");
 
 
-    // IMU -> MPU6050 : use to re-check working stage of imu
+    // IMU -> MPU6050
     printf("=== IMU (MPU6050) Detection ===\n");
     bool imu_ok = mpu6050_detect();
 
@@ -96,32 +110,33 @@ int main()
     }
     printf("\n");
 
-    // --------------------------------------------------------------------
-
-    // Baro -> MS5611 : use to re-check working stage of barometer
+    // Baro -> MS5611 
     printf("=== Barometer (MS5611) Detection ===\n");
-    bool baro_ok = MS5611_detect();
-    
-    if (baro_ok) {
-        printf("Barometer detected successfully\n");
-        MS5611_init();
-    } else {
-        printf("Barometer NOT FOUND - check wiring and I2C address!\n");
-    }
-    printf("\n");
+    printf("Initializing barometer...\n");
+    MS5611_init();
+    printf("Barometer initialized\n\n");
 
-    // --------------------------------------------------------------------
 
     // In core code variables
     imu_data_t imu;
     test_mode_t mode = MODE_NONE;
 
-    // LED ticking
+    // LED ticking 
     bool led_state = false;
     absolute_time_t last_led_time = get_absolute_time();
 
     // Loop counter
     uint32_t tick = 0;
+    
+    // Timed CSV logging variables
+    bool timed_logging = false;
+    uint32_t log_duration_ms = 0;
+    absolute_time_t log_start_time;
+    
+    // Timestamp offset for CSV (reset to 0 each session)
+    uint32_t timestamp_offset_ms = 0;
+
+    // ---------------------------------------------------------------------
 
     // Choices for output in python
     printf("========================================\n");
@@ -130,6 +145,8 @@ int main()
     printf("  i = IMU sensor run test\n");
     printf("  b = Barometer sensor run test\n");
     printf("  a = All sensors run\n");
+    printf("  c = CSV logging mode (continuous)\n");
+    printf("  t<N> = Timed CSV log (e.g., t10 = 10 sec)\n");
     printf("  n = None (Stop output)\n");
     printf("========================================\n\n");
 
@@ -158,14 +175,64 @@ int main()
                     mode = MODE_BARO;
                 else if (ch == 'a' || ch == 'A')
                     mode = MODE_BOTH;
+                else if (ch == 'c' || ch == 'C')
+                    mode = MODE_CSV_LOG;
+                else if (ch == 't' || ch == 'T') {
+                    // Timed logging: read duration (e.g., "t10" for 10 seconds)
+                    uint32_t duration_sec = 0;
+                    
+                    // Read digits
+                    for (int j = 0; j < 5; j++) {
+                        int digit = getchar_timeout_us(100000); // 100ms timeout
+                        if (digit >= '0' && digit <= '9') {
+                            duration_sec = duration_sec * 10 + (digit - '0');
+                        } else {
+                            break;
+                        }
+                    }
+                    
+                    if (duration_sec > 0) {
+                        mode = MODE_CSV_LOG;
+                        timed_logging = true;
+                        log_duration_ms = duration_sec * 1000;
+                        log_start_time = get_absolute_time();
+                        timestamp_offset_ms = to_ms_since_boot(get_absolute_time());  // Reset timestamp to 0
+                        printf("CSV_HEADER,timestamp_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,pressure_pa,temperature_c,altitude_m\n");
+                        printf("Starting timed CSV logging for %lu seconds...\n", duration_sec);
+                    }
+                }
                 else if (ch == 'n' || ch == 'N')
                     mode = MODE_NONE;
-                printf("Mode changed to: %d\n", mode);
+                
+                if (ch != 't' && ch != 'T') {  // Don't print for 't' since we handle it above
+                    printf("Mode changed to: %d\n", mode);
+                    
+                    // Print CSV header when entering CSV mode (non-timed)
+                    if (mode == MODE_CSV_LOG && !timed_logging) {
+                        timestamp_offset_ms = to_ms_since_boot(get_absolute_time());  // Reset timestamp to 0
+                        printf("CSV_HEADER,timestamp_s,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,pressure_pa,temperature_c,altitude_m\n");
+                    }
+                }
+                
                 fflush(stdout);
             }
             sleep_ms(10);
         }
 
+        
+        // Check if timed logging should stop
+        if (timed_logging && mode == MODE_CSV_LOG) {
+            uint32_t elapsed_ms = absolute_time_diff_us(log_start_time, get_absolute_time()) / 1000;
+            
+            if (elapsed_ms >= log_duration_ms) {
+                // Stop logging
+                printf("CSV_END\n");
+                printf("Timed logging complete! Collected data for %lu ms\n", elapsed_ms);
+                mode = MODE_NONE;
+                timed_logging = false;
+                fflush(stdout);
+            }
+        }
         
         switch (mode)
         {
@@ -219,6 +286,34 @@ int main()
                    imu.ax, imu.ay, imu.az,
                    imu.gx, imu.gy, imu.gz,
                    baro.pressure, baro.altitude, baro.temperature);
+            break;
+        }
+        case MODE_CSV_LOG:
+        {
+            // Collect data for CSV export
+            SensorData data;
+            
+            // Get timestamp relative to start of logging (in seconds)
+            uint32_t current_ms = to_ms_since_boot(get_absolute_time());
+            uint32_t elapsed_ms = current_ms - timestamp_offset_ms;
+            float timestamp_s = elapsed_ms / 1000.0f;  // Convert to seconds
+            
+            // Read IMU and convert to physical units
+            mpu6050_read_all(&imu);
+            mpu6050_get_accel_g(&imu, &data.ax_g, &data.ay_g, &data.az_g);
+            mpu6050_get_gyro_dps(&imu, &data.gx_dps, &data.gy_dps, &data.gz_dps);
+            
+            // Read barometer
+            data.pressure_pa = MS5611_read_pressure();
+            data.temperature_c = MS5611_read_temperature();
+            data.altitude_m = pressure_to_altitude(data.pressure_pa);
+            
+            // Output CSV format: CSV_DATA,timestamp,ax,ay,az,gx,gy,gz,pressure,temp,altitude
+            printf("CSV_DATA,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f\n",
+                   timestamp_s,
+                   data.ax_g, data.ay_g, data.az_g,
+                   data.gx_dps, data.gy_dps, data.gz_dps,
+                   data.pressure_pa, data.temperature_c, data.altitude_m);
             break;
         }
         case MODE_NONE:
