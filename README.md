@@ -18,8 +18,8 @@ Our team decide to participate in ssi-society to develop a rocket that can reach
 ### Pin register by :
 
 1. **I2C0 — For IMU + Barometer**
-   * SDA → GPIO 4 
-   * SCL → GPIO 5
+   * SDA → GPIO 2
+   * SCL → GPIO 3
 
 2. **UART1 — For GPS**
    * GPS TX → GPIO 9

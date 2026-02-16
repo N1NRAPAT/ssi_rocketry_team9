@@ -1,151 +1,104 @@
-#include <stdio.h>
 #include "imu.h"
-#include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "pico/stdlib.h"
+#include <stdio.h>
 
+// MPU6050 register addresses
+#define MPU6050_REG_PWR_MGMT_1  0x6B
+#define MPU6050_REG_ACCEL_CONFIG 0x1C
+#define MPU6050_REG_GYRO_CONFIG  0x1B
+#define MPU6050_REG_WHO_AM_I     0x75
+#define MPU6050_REG_ACCEL_XOUT_H 0x3B
+#define MPU6050_REG_ACCEL_YOUT_H 0x3D
+#define MPU6050_REG_ACCEL_ZOUT_H 0x3F
+#define MPU6050_REG_GYRO_XOUT_H  0x43
+#define MPU6050_REG_GYRO_YOUT_H  0x45
+#define MPU6050_REG_GYRO_ZOUT_H  0x47
 
-// Register pin of i2c to pico
-static bool mpu_write(uint8_t reg, uint8_t data) {
-    uint8_t buf[2] = { reg, data };
-    int ret = i2c_write_timeout_us(i2c0, MPU6050_ADDR, buf, 2, false, 5000);
-    return (ret >= 0);
-}
+// Conversion factors
+#define ACCEL_SCALE_FACTOR 16384.0f  // For ±2g range
+#define GYRO_SCALE_FACTOR  131.0f    // For ±250°/s range
 
-static bool mpu_read(uint8_t reg, uint8_t *buf, int len) {
-    int ret = i2c_write_timeout_us(i2c0, MPU6050_ADDR, &reg, 1, true, 5000);
-    if (ret < 0) return false;
+// Read 16-bit signed value from register
+static int16_t read_raw(uint8_t reg) {
+    uint8_t data[2];
+    i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
+    i2c_read_blocking(i2c1, MPU6050_ADDR, data, 2, false);
     
-    ret = i2c_read_timeout_us(i2c0, MPU6050_ADDR, buf, len, false, 5000);
-    return (ret >= 0);
+    int16_t value = (data[0] << 8) | data[1];
+    return value;
 }
 
-static int16_t make_word(uint8_t *buf, int idx) {
-    return (buf[idx] << 8) | buf[idx + 1];
-}
-
-bool mpu6050_detect(void)
-{
-    uint8_t whoami = 0;
-    uint8_t reg = 0x75;
-
-    int ret = i2c_write_timeout_us(
-        i2c0, MPU6050_ADDR, &reg, 1, true, 2000
-    );
+// Initialize MPU6050 sensor
+bool imu_init(void) {
+    uint8_t buf[2];
+    uint8_t whoami;
+    uint8_t reg;
+    int ret;
+    
+    // Initialize I2C on bus 1, GPIO 2 & 3
+    i2c_init(i2c1, 100000);  // 100 kHz
+    gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA_PIN);
+    gpio_pull_up(I2C_SCL_PIN);
+    
+    sleep_ms(100);  // Allow I2C to stabilize
+    
+    // Check WHO_AM_I register
+    reg = MPU6050_REG_WHO_AM_I;
+    ret = i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
     if (ret < 0) {
-        printf("IMU: Detect write failed\n");
+        printf("ERROR: I2C communication failed!\n");
         return false;
     }
-
-    ret = i2c_read_timeout_us(
-        i2c0, MPU6050_ADDR, &whoami, 1, false, 2000
-    );
-    if (ret < 0) {
-        printf("IMU: Detect read failed\n");
+    
+    i2c_read_blocking(i2c1, MPU6050_ADDR, &whoami, 1, false);
+    if (whoami != 0x68) {
+        printf("ERROR: Wrong device detected (WHO_AM_I = 0x%02X, expected 0x68)\n", whoami);
         return false;
     }
-
-    printf("IMU: WHO_AM_I = 0x%02X (expected 0x68)\n", whoami);
-    return (whoami == 0x68);
-}
-
-// --- Public functions ---
-void mpu6050_init(void) {
-    printf("IMU: Starting initialization...\n");
-    sleep_ms(50);
-
-    // Wake up, select internal clock (PLL with X-axis gyro reference)
-    if (!mpu_write(0x6B, 0x01)) {
-        printf("IMU: Failed to wake up sensor\n");
-        return;
-    }
-    sleep_ms(10);
-
-    // Enable all accel + gyro axes
-    if (!mpu_write(0x6C, 0x00)) {
-        printf("IMU: Failed to enable axes\n");
-        return;
-    }
-    sleep_ms(10);
-
-    // RESET signal paths (THIS IS CRITICAL)
-    if (!mpu_write(0x68, 0x07)) {
-        printf("IMU: Failed to reset signal paths\n");
-        return;
-    }
-    sleep_ms(10);
-
-    // Set ranges (safe defaults)
-    mpu_write(0x1B, 0x00);   // Gyro ±250 dps
-    mpu_write(0x1C, 0x00);   // Accel ±2g
-    sleep_ms(5);
-
-    // Configure low-pass filter
-    mpu_write(0x1A, 0x03);   // DLPF config (44Hz bandwidth)
-    mpu_write(0x19, 0x04);   // Sample rate divider (200Hz)
-    sleep_ms(5);
-
-    printf("IMU: Initialization complete\n");
-}
-
-// Raw output from imu sensor
-void mpu6050_read_all(imu_data_t *imu) {
-    uint8_t raw[14];
-    uint8_t reg = 0x3B;  // ACCEL_XOUT_H register
     
-    // *** CRITICAL FIX: Must write register address first! ***
-    int ret = i2c_write_blocking(i2c0, MPU6050_ADDR, &reg, 1, true);
+    // Wake up MPU6050 (clear sleep bit)
+    buf[0] = MPU6050_REG_PWR_MGMT_1;
+    buf[1] = 0x00;
+    ret = i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
     if (ret < 0) {
-        printf("IMU: Failed to write register address (ret=%d)\n", ret);
-        imu->ax = imu->ay = imu->az = 0;
-        imu->gx = imu->gy = imu->gz = 0;
-        return;
+        printf("ERROR: Failed to wake up MPU6050!\n");
+        return false;
     }
+    sleep_ms(100);
     
-    // Then read 14 bytes (accel x,y,z + temp + gyro x,y,z)
-    ret = i2c_read_blocking(i2c0, MPU6050_ADDR, raw, 14, false);
-    if (ret < 0) {
-        printf("IMU: Failed to read sensor data (ret=%d)\n", ret);
-        imu->ax = imu->ay = imu->az = 0;
-        imu->gx = imu->gy = imu->gz = 0;
-        return;
-    }
+    // Set accelerometer range to ±2g
+    buf[0] = MPU6050_REG_ACCEL_CONFIG;
+    buf[1] = 0x00;
+    i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
     
-    // Parse accelerometer data (registers 0x3B-0x40)
-    imu->ax = make_word(raw, 0);
-    imu->ay = make_word(raw, 2);
-    imu->az = make_word(raw, 4);
+    // Set gyroscope range to ±250°/s
+    buf[0] = MPU6050_REG_GYRO_CONFIG;
+    buf[1] = 0x00;
+    i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
     
-    // Parse gyroscope data (registers 0x43-0x48)
-    // Note: Temperature is at raw[6:7] but we skip it
-    imu->gx = make_word(raw, 8);
-    imu->gy = make_word(raw, 10);
-    imu->gz = make_word(raw, 12);
-    
-    // Debug: Warn if all values are zero (possible hardware issue)
-    static int zero_count = 0;
-    if (imu->ax == 0 && imu->ay == 0 && imu->az == 0 &&
-        imu->gx == 0 && imu->gy == 0 && imu->gz == 0) {
-        zero_count++;
-        if (zero_count == 1 || zero_count % 100 == 0) {
-            printf("IMU: WARNING - All values zero (count: %d)\n", zero_count);
-        }
-    } else {
-        zero_count = 0;
-    }
+    return true;
 }
 
-// Helper function to convert raw accelerometer data to g's
-void mpu6050_get_accel_g(imu_data_t *imu, float *ax_g, float *ay_g, float *az_g) {
-    // For ±2g range (0x1C = 0x00), sensitivity is 16384 LSB/g
-    *ax_g = imu->ax / 16384.0f;
-    *ay_g = imu->ay / 16384.0f;
-    *az_g = imu->az / 16384.0f;
+// Read all IMU data (accelerometer + gyroscope)
+void imu_read(imu_data_t *data) {
+    data->ax = read_raw(MPU6050_REG_ACCEL_XOUT_H);
+    data->ay = read_raw(MPU6050_REG_ACCEL_YOUT_H);
+    data->az = read_raw(MPU6050_REG_ACCEL_ZOUT_H);
+    data->gx = read_raw(MPU6050_REG_GYRO_XOUT_H);
+    data->gy = read_raw(MPU6050_REG_GYRO_YOUT_H);
+    data->gz = read_raw(MPU6050_REG_GYRO_ZOUT_H);
 }
 
-// Helper function to convert raw gyroscope data to degrees/second
-void mpu6050_get_gyro_dps(imu_data_t *imu, float *gx_dps, float *gy_dps, float *gz_dps) {
-    // For ±250°/s range (0x1B = 0x00), sensitivity is 131 LSB/(°/s)
-    *gx_dps = imu->gx / 131.0f;
-    *gy_dps = imu->gy / 131.0f;
-    *gz_dps = imu->gz / 131.0f;
+// Convert raw values to physical units (g's and degrees/second)
+void imu_convert_to_units(imu_data_t *raw, float *ax, float *ay, float *az, 
+                          float *gx, float *gy, float *gz) {
+    *ax = raw->ax / ACCEL_SCALE_FACTOR;
+    *ay = raw->ay / ACCEL_SCALE_FACTOR;
+    *az = raw->az / ACCEL_SCALE_FACTOR;
+    *gx = raw->gx / GYRO_SCALE_FACTOR;
+    *gy = raw->gy / GYRO_SCALE_FACTOR;
+    *gz = raw->gz / GYRO_SCALE_FACTOR;
 }
