@@ -2,5 +2,5 @@ build
 !.vscode/*
 # Zed
 .zed/
-.cache
-.compile_commands.json/
+cache
+compile_commands.json
