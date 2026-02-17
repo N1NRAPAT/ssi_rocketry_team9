@@ -7,7 +7,8 @@
 #define MPU6050_REG_PWR_MGMT_1  0x6B
 #define MPU6050_REG_ACCEL_CONFIG 0x1C
 #define MPU6050_REG_GYRO_CONFIG  0x1B
-#define MPU6050_REG_WHO_AM_I     0x75
+#define MPU6050_REG_WHO_AM_I     0x75 //tell imu to return 0x68
+// MPU6050 from ax -> gz 
 #define MPU6050_REG_ACCEL_XOUT_H 0x3B
 #define MPU6050_REG_ACCEL_YOUT_H 0x3D
 #define MPU6050_REG_ACCEL_ZOUT_H 0x3F
@@ -34,7 +35,7 @@ bool imu_init(void) {
     uint8_t buf[2];
     uint8_t whoami;
     uint8_t reg;
-    int ret;
+    int ret; // ret = stage of changes while processing program
     
     // Initialize I2C on bus 1, GPIO 2 & 3
     i2c_init(i2c1, 100000);  // 100 kHz
@@ -49,12 +50,14 @@ bool imu_init(void) {
     reg = MPU6050_REG_WHO_AM_I;
     ret = i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
     if (ret < 0) {
+        // ret > 0 when I2C signal running 
         printf("ERROR: I2C communication failed!\n");
         return false;
     }
     
     i2c_read_blocking(i2c1, MPU6050_ADDR, &whoami, 1, false);
     if (whoami != 0x68) {
+        // mpu6050 not returning 0x68 then not detected devices 
         printf("ERROR: Wrong device detected (WHO_AM_I = 0x%02X, expected 0x68)\n", whoami);
         return false;
     }
@@ -95,7 +98,7 @@ void imu_read(imu_data_t *data) {
 // Convert raw values to physical units (g's and degrees/second)
 void imu_convert_to_units(imu_data_t *raw, float *ax, float *ay, float *az, 
                           float *gx, float *gy, float *gz) {
-    *ax = raw->ax / ACCEL_SCALE_FACTOR;
+    *ax = raw->ax / ACCEL_SCALE_FACTOR; // new = raw point to physic variable 
     *ay = raw->ay / ACCEL_SCALE_FACTOR;
     *az = raw->az / ACCEL_SCALE_FACTOR;
     *gx = raw->gx / GYRO_SCALE_FACTOR;

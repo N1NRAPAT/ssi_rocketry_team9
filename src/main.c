@@ -13,10 +13,11 @@ int main() {
     printf("====================================\n\n");
     fflush(stdout);
     
-    // Initialize IMU
+    // Initialize IMU 
     printf("Step 1: Initializing IMU...\n");
     fflush(stdout);
     
+    // Error detecting massages
     if (!imu_init()) {
         printf("  ERROR: IMU initialization failed!\n");
         printf("  Check wiring:\n");
@@ -28,13 +29,14 @@ int main() {
         while (1) sleep_ms(1000);
     }
     
+    // Non-error massage 
     printf("  MPU6050 initialized!\n\n");
     printf("====================================\n");
     printf("  Reading data every second...      \n");
     printf("====================================\n\n");
     fflush(stdout);
     
-    imu_data_t imu;
+    imu_data_t imu; // int16_t imu 
     float ax, ay, az, gx, gy, gz;
     int count = 0;
     
@@ -53,6 +55,6 @@ int main() {
         fflush(stdout);
         
         count++;
-        sleep_ms(1000);
+        sleep_ms(100); //100 ms -> 0.1 s
     }
 }
