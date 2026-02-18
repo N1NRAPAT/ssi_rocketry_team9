@@ -7,10 +7,6 @@
 // MPU6050 I2C address
 #define MPU6050_ADDR 0x68
 
-// GPIO pins for I2C
-#define I2C_SDA_PIN 2
-#define I2C_SCL_PIN 3
-
 // IMU data structure
 typedef struct {
     int16_t ax, ay, az;  // Raw accelerometer values

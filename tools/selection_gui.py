@@ -7,23 +7,28 @@ from datetime import datetime
 import os
 import time
 
-# CSV output directory
-CSV_OUTPUT_DIR = "/Users/punnaratsuttinual/SSI_rocketry/data/document_image/csvfile"
-
+CSV_OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data/csvfile")
 os.makedirs(CSV_OUTPUT_DIR, exist_ok=True)
 
 def find_pico_port():
-    """Auto-detect Pico serial port"""
+    """Auto-detect Pico seperate to 3 main methods to minimize issue"""
     ports = serial.tools.list_ports.comports()
+    
+    # Try Pico specifically
     for port in ports:
-        if 'USB Serial' in port.description or 'Pico' in port.description:
+        if port.vid == 0x2E8A or 'Pico' in port.description:
             return port.device
-        if port.vid == 0x2E8A:
-            return port.device
+    
+    # Try common USB serial
     for port in ports:
-        if 'usbmodem' in port.device or 'ttyACM' in port.device:
+        if 'USB Serial' in port.description or 'usbmodem' in port.device or 'ttyACM' in port.device:
             return port.device
-    return None
+    
+    # Just use first available port
+    if ports:
+        return ports[0].device
+    
+    return None # there is nothing out in general
 
 
 class SimpleIMUMonitor:
@@ -32,14 +37,15 @@ class SimpleIMUMonitor:
         self.root.title("IMU Monitor")
         self.root.geometry("700x500")
         
-        # Connect to Pico
+        # Auto-connect
         self.port = find_pico_port()
+        self.ser = None
         if self.port:
-            self.ser = serial.Serial(self.port, 115200, timeout=0.05)
-            print(f"Connected to {self.port}")
-        else:
-            self.ser = None
-            print("Pico not found!")
+            try:
+                self.ser = serial.Serial(self.port, 115200, timeout=0.05) #baudrate = 115200
+                print(f"Connected to {self.port}")
+            except:
+                print(f"Failed to connect to {self.port}")
         
         # State
         self.mode = "idle"
@@ -57,39 +63,37 @@ class SimpleIMUMonitor:
         threading.Thread(target=self.update_timer, daemon=True).start()
     
     def setup_ui(self):
-        # Top controls
+        # Controls
         control_frame = tk.Frame(self.root, padx=10, pady=10)
         control_frame.pack(fill=tk.X)
         
-        # Mode buttons
         tk.Button(control_frame, text="Test", command=self.start_test, 
                  width=10, bg="#5DADE2").grid(row=0, column=0, padx=5)
-        tk.Button(control_frame, text="Log CSV", command=self.start_logging, 
+        tk.Button(control_frame, text="CSV", command=self.start_logging, 
                  width=10, bg="#52BE80").grid(row=0, column=1, padx=5)
         tk.Button(control_frame, text="Stop", command=self.stop, 
                  width=10, bg="#EC7063").grid(row=0, column=2, padx=5)
         
-        # Timer selection
         tk.Label(control_frame, text="Duration:").grid(row=0, column=3, padx=(20, 5))
         self.duration_var = tk.IntVar(value=10)
-        for i, dur in enumerate([5, 10, 30, 60]):
+        for i, dur in enumerate([5, 10, 30, 60]): # timer 
             tk.Radiobutton(control_frame, text=f"{dur}s", 
                           variable=self.duration_var, value=dur).grid(row=0, column=4+i, padx=2)
         
-        # Status bar
+        # Status
         status_frame = tk.Frame(self.root, bg="#ECF0F1", padx=10, pady=5)
         status_frame.pack(fill=tk.X)
         
-        tk.Label(status_frame, text="Mode:", bg="#ECF0F1").pack(side=tk.LEFT)
-        self.mode_label = tk.Label(status_frame, text="IDLE", bg="#ECF0F1", fg="gray")
+        tk.Label(status_frame, text="Mode:", bg="#ECF0F1",fg="black").pack(side=tk.LEFT)
+        self.mode_label = tk.Label(status_frame, text="IDLE", bg="#ECF0F1", fg="black")
         self.mode_label.pack(side=tk.LEFT, padx=5)
         
-        tk.Label(status_frame, text="Samples:", bg="#ECF0F1").pack(side=tk.LEFT, padx=(20, 0))
-        self.sample_label = tk.Label(status_frame, text="0", bg="#ECF0F1", fg="gray")
+        tk.Label(status_frame, text="Samples:", bg="#ECF0F1",fg="black").pack(side=tk.LEFT, padx=(20, 0))
+        self.sample_label = tk.Label(status_frame, text="0", bg="#ECF0F1", fg="black")
         self.sample_label.pack(side=tk.LEFT, padx=5)
         
-        tk.Label(status_frame, text="Timer:", bg="#ECF0F1").pack(side=tk.LEFT, padx=(20, 0))
-        self.timer_label = tk.Label(status_frame, text="--:--", bg="#ECF0F1", fg="gray")
+        tk.Label(status_frame, text="Timer:", bg="#ECF0F1",fg="black").pack(side=tk.LEFT, padx=(20, 0))
+        self.timer_label = tk.Label(status_frame, text="--:--", bg="#ECF0F1", fg="black")
         self.timer_label.pack(side=tk.LEFT, padx=5)
         
         # Text output
@@ -100,14 +104,17 @@ class SimpleIMUMonitor:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         self.text = tk.Text(text_frame, width=80, height=20, 
-                           yscrollcommand=scrollbar.set, font=("Courier", 9))
+                           yscrollcommand=scrollbar.set, font=("Courier", 14))
         self.text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.config(command=self.text.yview)
         
+        # System output text - instantly 
         self.log("IMU Monitor Ready")
-        self.log(f"Port: {self.port if self.port else 'Not connected'}\n")
+        self.log(f"Port: {self.port if self.port else 'Not found'}")
+        self.log(f"CSV folder: {CSV_OUTPUT_DIR}\n")
     
-    def log(self, msg):
+    def log(self, msg): 
+        # Enter massages 
         self.text.insert(tk.END, msg + "\n")
         self.text.see(tk.END)
     
@@ -166,10 +173,11 @@ class SimpleIMUMonitor:
         self.timer_label.config(text="--:--", fg="gray")
     
     def update_timer(self):
+        # update timer everytime after excercution 
         while self.running:
             if self.mode != "idle":
                 elapsed = time.time() - self.timer_start
-                remaining = max(0, self.timer_duration - elapsed)
+                remaining = max(0, self.timer_duration - elapsed) # from far to zero 
                 
                 mins = int(remaining // 60)
                 secs = int(remaining % 60)
@@ -192,14 +200,12 @@ class SimpleIMUMonitor:
             time.sleep(0.01)
     
     def process_line(self, line):
-        # Handle CSV header
         if line.startswith('CSV_HEADER'):
             parts = line.split(',', 1)
             if len(parts) > 1 and self.csv_writer:
                 self.csv_writer.writerow(parts[1].split(','))
                 self.csv_file.flush()
         
-        # Handle CSV data
         elif line.startswith('CSV_DATA'):
             if self.csv_writer:
                 parts = line.split(',', 1)
@@ -211,11 +217,9 @@ class SimpleIMUMonitor:
                         self.csv_file.flush()
                         self.sample_label.config(text=str(self.data_count))
         
-        # Handle end
         elif line.startswith('CSV_END'):
             pass
         
-        # Display all messages
         else:
             self.log(line)
             if "Sample" in line and self.mode == "test":
