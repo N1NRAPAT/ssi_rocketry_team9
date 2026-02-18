@@ -36,8 +36,6 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 set (SOURCES
     src/main.c
-    src/devices/imu.c
-    src/devices/barometric_sensor/MS5611.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
