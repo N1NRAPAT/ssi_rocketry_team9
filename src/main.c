@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "devices/imu.h"
+#include "devices/imu.h"`
 #include "devices/barometric_sensor"
 
 #define I2C_SDA_PIN  2
