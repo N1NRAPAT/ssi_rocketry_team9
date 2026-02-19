@@ -21,9 +21,10 @@ Our team decide to participate in ssi-society to develop a rocket that can reach
    * SDA → GPIO 2
    * SCL → GPIO 3
 
+
 2. **UART1 — For GPS**
-   * GPS TX → GPIO 9
-   * GPS RX → GPIO 8
+   * GPS TX → GPIO 1
+   * GPS RX → GPIO 2
 
 3. **SPI0 — For LoRa SX1278**
    * SCK → GPIO 18

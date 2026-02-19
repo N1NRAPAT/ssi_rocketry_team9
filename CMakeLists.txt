@@ -56,11 +56,15 @@ target_link_libraries(SSI_rocketry
         hardware_i2c
         FatFs_SPI
         pico_cyw43_arch_none
+        hardware_uart
+        hardware_gpio
+        m
         )
 
 # Add the standard include files to the build
 target_include_directories(SSI_rocketry PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        # ${CMAKE_CURRENT_LIST_DIR}/src
         )
 
 pico_add_extra_outputs(SSI_rocketry)
