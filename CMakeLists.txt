@@ -37,6 +37,8 @@ pico_sdk_init()
 set (SOURCES
     src/main.c
     src/devices/gps/neo_6m.c
+    src/devices/imu.c
+    src/devices/barometric_sensor/baro.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )

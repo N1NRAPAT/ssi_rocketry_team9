@@ -3,20 +3,20 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+#include <math.h>
 
-// MPU6050 I2C address
-#define MPU6050_ADDR 0x68
+#define MPU6050_ADDR  0x68
 
-// IMU data structure
 typedef struct {
-    int16_t ax, ay, az;  // Raw accelerometer values
-    int16_t gx, gy, gz;  // Raw gyroscope values
+    int16_t ax, ay, az;
+    int16_t gx, gy, gz;
 } imu_data_t;
 
-// Function declarations
-bool imu_init(void);
-void imu_read(imu_data_t *data);
-void imu_convert_to_units(imu_data_t *raw, float *ax, float *ay, float *az, 
-                          float *gx, float *gy, float *gz);
+bool  imu_init(void);
+void  imu_read(imu_data_t *data);
+void  imu_calc_pitch_roll(float ax, float ay, float az,
+                           float *pitch, float *roll);
 
-#endif // IMU_H
+#endif
