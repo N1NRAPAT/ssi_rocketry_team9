@@ -34,6 +34,20 @@ typedef struct {
     int16_t gx, gy, gz;
 } imu_data_t;
 
+// Baseline pitch/roll captured at sample 0 for delta comparison
+static float baseline_pitch = 0.0f;
+static float baseline_roll  = 0.0f;
+static bool  baseline_set   = false;
+
+// Calculate pitch and roll from accelerometer (degrees)
+// pitch = rotation around Y axis (nose up/down)
+// roll  = rotation around X axis (wing left/right)
+static void calc_pitch_roll(float ax, float ay, float az,
+                             float *pitch, float *roll) {
+    *pitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * (180.0f / M_PI);
+    *roll  = atan2f( ay, az)                        * (180.0f / M_PI);
+}
+
 static bool mpu_init(void) {
     uint8_t buf[2];
 
@@ -324,7 +338,7 @@ int main() {
 
             if (cmd[0] == 'i') {
                 if (!imu_ok) { printf("PICO: No IMU connected\n"); fflush(stdout); }
-                else { mode = MODE_IMU; sample_count = 0; printf("PICO: IMU mode\n"); fflush(stdout); }
+                else { mode = MODE_IMU; sample_count = 0; baseline_set = false; printf("PICO: IMU mode\n"); fflush(stdout); }
 
             } else if (cmd[0] == 'b') {
                 if (!baro_ok) { printf("PICO: No barometer connected\n"); fflush(stdout); }
@@ -335,7 +349,7 @@ int main() {
                 else { mode = MODE_GPS; sample_count = 0; printf("PICO: GPS mode\n"); fflush(stdout); }
 
             } else if (cmd[0] == 'a') {
-                mode = MODE_ALL; sample_count = 0;
+                mode = MODE_ALL; sample_count = 0; baseline_set = false;
                 printf("PICO: All sensors mode\n"); fflush(stdout);
 
             } else if (cmd[0] == 't') {
@@ -379,6 +393,7 @@ int main() {
 
         // ── Read sensors (only if connected) ──────────────
         float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
+        float pitch = 0, roll = 0, dpitch = 0, droll = 0;
         if (imu_ok && mode != MODE_BARO && mode != MODE_GPS) {
             mpu_read(&imu);
             ax = imu.ax / 16384.0f;
@@ -387,6 +402,19 @@ int main() {
             gx = imu.gx / 131.0f;
             gy = imu.gy / 131.0f;
             gz = imu.gz / 131.0f;
+
+            calc_pitch_roll(ax, ay, az, &pitch, &roll);
+
+            // Capture baseline at sample 0
+            if (!baseline_set) {
+                baseline_pitch = pitch;
+                baseline_roll  = roll;
+                baseline_set   = true;
+            }
+
+            // Delta = change from sample 0
+            dpitch = pitch - baseline_pitch;
+            droll  = roll  - baseline_roll;
         }
 
         float pressure = 0, temperature = 0, altitude_baro = 0;
@@ -398,8 +426,10 @@ int main() {
         // ── Output ────────────────────────────────────────
         if (mode == MODE_IMU) {
             printf("Sample %d:\n", sample_count);
-            printf("  Accel: X=%7.3fg  Y=%7.3fg  Z=%7.3fg\n", ax, ay, az);
-            printf("  Gyro:  X=%7.2f/s Y=%7.2f/s Z=%7.2f/s\n", gx, gy, gz);
+            printf("  Accel: X=%7.3fg   Y=%7.3fg   Z=%7.3fg\n", ax, ay, az);
+            printf("  Gyro:  X=%7.2f/s  Y=%7.2f/s  Z=%7.2f/s\n", gx, gy, gz);
+            printf("  Pitch: %7.2f deg  (delta: %+.2f deg from sample 0)\n", pitch, dpitch);
+            printf("  Roll:  %7.2f deg  (delta: %+.2f deg from sample 0)\n", roll,  droll);
             printf("\n");
             fflush(stdout);
 
@@ -415,10 +445,12 @@ int main() {
 
         } else if (mode == MODE_ALL) {
             printf("Sample %d:\n", sample_count);
-            if (imu_ok)
-                printf("  Accel: X=%7.3fg  Y=%7.3fg  Z=%7.3fg\n", ax, ay, az);
-            if (imu_ok)
-                printf("  Gyro:  X=%7.2f/s Y=%7.2f/s Z=%7.2f/s\n", gx, gy, gz);
+            if (imu_ok) {
+                printf("  Accel: X=%7.3fg   Y=%7.3fg   Z=%7.3fg\n", ax, ay, az);
+                printf("  Gyro:  X=%7.2f/s  Y=%7.2f/s  Z=%7.2f/s\n", gx, gy, gz);
+                printf("  Pitch: %7.2f deg  (delta: %+.2f deg from sample 0)\n", pitch, dpitch);
+                printf("  Roll:  %7.2f deg  (delta: %+.2f deg from sample 0)\n", roll,  droll);
+            }
             if (baro_ok)
                 printf("  Baro:  P=%.2f Pa  T=%.2f C  Alt=%.2f m\n",
                        pressure, temperature, altitude_baro);
