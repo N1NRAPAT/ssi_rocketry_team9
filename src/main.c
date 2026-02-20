@@ -5,9 +5,18 @@
 #include "hardware/i2c.h"
 #include <math.h>
 
+#include "src/devices/gps/neo_6m.h"
+
 // ============================================================
-//  This is imu raw output working program 16 feb 2026
-//  + MS5611 barometer added 
+//  IMU + Barometer + GPS Firmware
+//  19 Feb 2026
+//  GPIO 2 (SDA) & GPIO 3 (SCL)  – I2C1  (IMU + Baro)
+//  GP0 (TX)     & GP1 (RX)      – UART0 (GPS)
+//
+//  All sensors are INDEPENDENT:
+//  - If any sensor is missing, the others keep running
+//  - No sensor waits for another to initialize
+//  - Each sensor has its own ok flag
 // ============================================================
 
 #define MPU6050_ADDR  0x68
@@ -15,33 +24,57 @@
 #define I2C_SDA_PIN   2
 #define I2C_SCL_PIN   3
 
+// ============================================================
+//  IMU — MPU6050
+// ============================================================
+static bool imu_ok = false;
+
 typedef struct {
     int16_t ax, ay, az;
     int16_t gx, gy, gz;
 } imu_data_t;
 
-static int16_t read_raw(uint8_t reg) {
-    uint8_t data[2];
-    i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
-    i2c_read_blocking(i2c1, MPU6050_ADDR, data, 2, false);
-    return (int16_t)((data[0] << 8) | data[1]);
-}
-
 static bool mpu_init(void) {
     uint8_t buf[2];
-    buf[0] = 0x6B; buf[1] = 0x00;  // wake up
-    int ret = i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
-    if (ret < 0) return false;
+
+    // Check WHO_AM_I first
+    uint8_t reg = 0x75;
+    uint8_t whoami;
+    int ret = i2c_write_timeout_us(i2c1, MPU6050_ADDR, &reg, 1, true, 5000);
+    if (ret < 0) {
+        printf("IMU: Not detected (no response at 0x68)\n");
+        return false;
+    }
+    i2c_read_blocking(i2c1, MPU6050_ADDR, &whoami, 1, false);
+    printf("  WHO_AM_I = 0x%02X\n", whoami);
+    if (whoami != 0x68) {
+        printf("IMU: Wrong device! Expected 0x68\n");
+        return false;
+    }
+
+    // Wake up
+    buf[0] = 0x6B; buf[1] = 0x00;
+    ret = i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
+    if (ret < 0) {
+        printf("IMU: Failed to wake up\n");
+        return false;
+    }
     sleep_ms(100);
-    buf[0] = 0x1C; buf[1] = 0x00;  // accel ±2g
+
+    // Accel ±2g
+    buf[0] = 0x1C; buf[1] = 0x00;
     i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
-    buf[0] = 0x1B; buf[1] = 0x00;  // gyro ±250°/s
+
+    // Gyro ±250°/s
+    buf[0] = 0x1B; buf[1] = 0x00;
     i2c_write_blocking(i2c1, MPU6050_ADDR, buf, 2, false);
+
+    printf("IMU: MPU6050 OK\n");
     return true;
 }
 
 static void mpu_read(imu_data_t *data) {
-    // Burst read — all 6 axes in one transaction (same moment in time)
+    // Burst read all 6 axes in one transaction
     uint8_t reg = 0x3B;
     uint8_t buf[14];
     i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
@@ -56,29 +89,22 @@ static void mpu_read(imu_data_t *data) {
 }
 
 // ============================================================
-//  MS5611 Barometer
+//  Barometer — MS5611
 // ============================================================
-static uint16_t baro_C[7];   // calibration coefficients C1-C6
 static bool     baro_ok = false;
+static uint16_t baro_C[7];
 
-// Unstick the I2C bus after a failed transaction
-// (a device that didn't ACK can hold SDA low, blocking all other devices)
 static void i2c_bus_recover(void) {
     i2c_deinit(i2c1);
     sleep_ms(10);
-
-    // Toggle SCL 9 times manually to release any stuck device
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_SIO);
     gpio_set_dir(I2C_SCL_PIN, GPIO_OUT);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_SIO);
     gpio_set_dir(I2C_SDA_PIN, GPIO_IN);
-
     for (int i = 0; i < 9; i++) {
         gpio_put(I2C_SCL_PIN, 0); sleep_ms(1);
         gpio_put(I2C_SCL_PIN, 1); sleep_ms(1);
     }
-
-    // Restore I2C
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_PIN);
@@ -88,18 +114,15 @@ static void i2c_bus_recover(void) {
 }
 
 static bool baro_init(void) {
-    // Reset
     uint8_t cmd = 0x1E;
     int ret = i2c_write_timeout_us(i2c1, MS5611_ADDR, &cmd, 1, false, 5000);
     if (ret < 0) {
         printf("BARO: Not detected (no response at 0x77)\n");
-        // FIX: recover the bus so IMU keeps working normally after this
         i2c_bus_recover();
         return false;
     }
     sleep_ms(5);
 
-    // Read calibration PROM (C1-C6 at addresses 0xA2-0xAC)
     for (int i = 0; i < 6; i++) {
         cmd = 0xA2 + (i * 2);
         uint8_t buf[2];
@@ -108,7 +131,12 @@ static bool baro_init(void) {
         baro_C[i+1] = ((uint16_t)buf[0] << 8) | buf[1];
     }
 
-    // Sanity check calibration
+    // Debug — print raw calibration so we can spot bad reads
+    printf("BARO DEBUG: C1=%u C2=%u C3=%u C4=%u C5=%u C6=%u\n",
+        baro_C[1], baro_C[2], baro_C[3],
+        baro_C[4], baro_C[5], baro_C[6]);
+    fflush(stdout);
+
     bool valid = true;
     for (int i = 1; i <= 6; i++) {
         if (baro_C[i] == 0 || baro_C[i] == 0xFFFF) { valid = false; break; }
@@ -122,40 +150,33 @@ static bool baro_init(void) {
     return true;
 }
 
-// Read pressure (Pa) and temperature (°C)
-// Uses second-order compensation from MS5611 datasheet
 static void baro_read(float *pressure_pa, float *temperature_c) {
     uint8_t cmd, data[3];
 
-    // Trigger D1 (pressure) conversion OSR=4096
     cmd = 0x48;
     i2c_write_blocking(i2c1, MS5611_ADDR, &cmd, 1, false);
     sleep_ms(11);
-
-    // Read D1
     cmd = 0x00;
     i2c_write_blocking(i2c1, MS5611_ADDR, &cmd, 1, true);
     i2c_read_blocking(i2c1, MS5611_ADDR, data, 3, false);
     uint32_t D1 = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2];
 
-    // Trigger D2 (temperature) conversion OSR=4096
     cmd = 0x58;
     i2c_write_blocking(i2c1, MS5611_ADDR, &cmd, 1, false);
     sleep_ms(11);
-
-    // Read D2
     cmd = 0x00;
     i2c_write_blocking(i2c1, MS5611_ADDR, &cmd, 1, true);
     i2c_read_blocking(i2c1, MS5611_ADDR, data, 3, false);
     uint32_t D2 = ((uint32_t)data[0] << 16) | ((uint32_t)data[1] << 8) | data[2];
 
-    // First order compensation
+    printf("BARO DEBUG: D1=%lu D2=%lu\n", (unsigned long)D1, (unsigned long)D2);
+    fflush(stdout);
+
     int32_t dT   = (int32_t)D2 - ((int32_t)baro_C[5] * 256);
     int32_t TEMP = 2000 + (int32_t)(((int64_t)dT * baro_C[6]) / 8388608LL);
     int64_t OFF  = ((int64_t)baro_C[2] * 65536LL) + ((int64_t)baro_C[4] * dT) / 128LL;
     int64_t SENS = ((int64_t)baro_C[1] * 32768LL) + ((int64_t)baro_C[3] * dT) / 256LL;
 
-    // Second order compensation (below 20°C)
     int64_t T2 = 0, OFF2 = 0, SENS2 = 0;
     if (TEMP < 2000) {
         int32_t td = TEMP - 2000;
@@ -172,7 +193,7 @@ static void baro_read(float *pressure_pa, float *temperature_c) {
     OFF  -= OFF2;
     SENS -= SENS2;
 
-    int32_t P = (int32_t)((((int64_t)D1 * SENS) / 2097152LL) - OFF) / 32768;
+    int32_t P = (int32_t)(((((int64_t)D1 * SENS) / 2097152LL) - OFF) / 32768LL);
 
     *pressure_pa   = (float)P;
     *temperature_c = TEMP / 100.0f;
@@ -206,8 +227,9 @@ int main() {
 
     printf("\n\n");
     printf("====================================\n");
-    printf("  IMU + Barometer Test              \n");
+    printf("  IMU + Barometer + GPS Test        \n");
     printf("  GPIO 2 (SDA) & GPIO 3 (SCL)       \n");
+    printf("  GP0 (TX)  & GP1 (RX)  - GPS       \n");
     printf("====================================\n\n");
     fflush(stdout);
 
@@ -219,7 +241,7 @@ int main() {
     gpio_pull_up(I2C_SCL_PIN);
     sleep_ms(100);
 
-    // I2C bus scan — shows every device connected
+    // I2C bus scan
     printf("Scanning I2C bus...\n");
     bool found_any = false;
     for (int addr = 0x08; addr < 0x78; addr++) {
@@ -238,65 +260,79 @@ int main() {
     printf("Scan done.\n\n");
     fflush(stdout);
 
-    // IMU init — same as working version
-    printf("Step 1: Detecting MPU6050...\n");
-    uint8_t whoami, reg = 0x75;
-    int ret = i2c_write_blocking(i2c1, MPU6050_ADDR, &reg, 1, true);
-    if (ret < 0) {
-        printf("  ERROR: I2C write failed! Check wiring.\n");
-        fflush(stdout);
-        while (1) sleep_ms(1000);
-    }
-    i2c_read_blocking(i2c1, MPU6050_ADDR, &whoami, 1, false);
-    printf("  WHO_AM_I = 0x%02X\n", whoami);
-    if (whoami != 0x68) {
-        printf("  ERROR: Wrong device! Expected 0x68\n");
-        fflush(stdout);
-        while (1) sleep_ms(1000);
-    }
-    printf("  MPU6050 found!\n\n");
+    // ── Each sensor inits independently — none blocks the others ──
 
-    if (!mpu_init()) {
-        printf("  ERROR: MPU6050 init failed!\n");
-        fflush(stdout);
-        while (1) sleep_ms(1000);
-    }
-    printf("  MPU6050 initialized!\n\n");
+    printf("Step 1: Initializing IMU...\n");
+    imu_ok = mpu_init();
+    if (!imu_ok) printf("  WARNING: Running without IMU\n");
+    printf("\n");
+    fflush(stdout);
 
-    // Baro init — optional, program keeps going if not found
-    printf("Step 2: Detecting MS5611...\n");
+    printf("Step 2: Initializing Barometer...\n");
     baro_ok = baro_init();
-    if (!baro_ok) {
-        printf("  WARNING: Running without barometer\n\n");
-    }
+    if (!baro_ok) printf("  WARNING: Running without barometer\n");
+    printf("\n");
     fflush(stdout);
 
-    printf("Ready. (i=IMU | b=Baro | a=All | t<sec>=CSV | n=stop)\n");
+    printf("Step 3: Initializing GPS...\n");
+    bool gps_ok = gps_init();
+    if (!gps_ok) printf("  WARNING: Running without GPS\n");
+    else printf("  NEO-6M OK (fix may take 1-3 min outdoors)\n");
+    printf("\n");
     fflush(stdout);
 
-    // State
-    typedef enum { MODE_IDLE, MODE_IMU, MODE_BARO, MODE_ALL, MODE_LOG } mode_t;
-    mode_t   mode           = MODE_IDLE;
+    // Summary of what's available
+    printf("====================================\n");
+    printf("  IMU:  %s\n", imu_ok  ? "OK" : "NOT CONNECTED");
+    printf("  BARO: %s\n", baro_ok ? "OK" : "NOT CONNECTED");
+    printf("  GPS:  %s\n", gps_ok  ? "OK" : "NOT CONNECTED");
+    printf("====================================\n\n");
+
+    printf("Commands:\n");
+    printf("  i = IMU only     b = Baro only    g = GPS only\n");
+    printf("  a = All sensors  t<sec> = CSV log  n = stop\n\n");
+    fflush(stdout);
+
+    // ── State ─────────────────────────────────────────────
+    typedef enum {
+        MODE_IDLE,
+        MODE_IMU,
+        MODE_BARO,
+        MODE_GPS,
+        MODE_ALL,
+        MODE_LOG
+    } mode_t;
+
+    mode_t   mode            = MODE_IDLE;
     int      log_duration_ms = 0;
-    int      sample_count   = 0;
-    uint32_t last_ms        = 0;
-    uint32_t log_start_ms   = 0;
+    int      sample_count    = 0;
+    uint32_t last_ms         = 0;
+    uint32_t log_start_ms    = 0;
 
     imu_data_t imu;
+    gps_data_t gps = {0};
     char cmd[32];
 
     while (true) {
         uint32_t now = to_ms_since_boot(get_absolute_time());
 
-        // --- Commands ---
+        // Always drain GPS UART in background
+        if (gps_ok) gps_update(&gps);
+
+        // ── Commands ──────────────────────────────────────
         if (read_command(cmd, sizeof(cmd))) {
+
             if (cmd[0] == 'i') {
-                mode = MODE_IMU;  sample_count = 0;
-                printf("PICO: IMU mode\n"); fflush(stdout);
+                if (!imu_ok) { printf("PICO: No IMU connected\n"); fflush(stdout); }
+                else { mode = MODE_IMU; sample_count = 0; printf("PICO: IMU mode\n"); fflush(stdout); }
 
             } else if (cmd[0] == 'b') {
                 if (!baro_ok) { printf("PICO: No barometer connected\n"); fflush(stdout); }
                 else { mode = MODE_BARO; sample_count = 0; printf("PICO: Baro mode\n"); fflush(stdout); }
+
+            } else if (cmd[0] == 'g') {
+                if (!gps_ok) { printf("PICO: No GPS connected\n"); fflush(stdout); }
+                else { mode = MODE_GPS; sample_count = 0; printf("PICO: GPS mode\n"); fflush(stdout); }
 
             } else if (cmd[0] == 'a') {
                 mode = MODE_ALL; sample_count = 0;
@@ -309,9 +345,17 @@ int main() {
                 log_start_ms    = now;
                 mode            = MODE_LOG;
                 sample_count    = 0;
-                // CSV header depends on whether baro is available
-                if (baro_ok)
-                    printf("CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,pressure_pa,temperature_c,altitude_m\n");
+
+                // CSV header only includes columns for connected sensors
+                if (baro_ok && gps_ok)
+                    printf("CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,"
+                           "pressure_pa,temperature_c,altitude_m,lat,lon,speed_kts\n");
+                else if (baro_ok)
+                    printf("CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,"
+                           "pressure_pa,temperature_c,altitude_m\n");
+                else if (gps_ok)
+                    printf("CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,"
+                           "lat,lon,speed_kts\n");
                 else
                     printf("CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps\n");
                 fflush(stdout);
@@ -326,14 +370,16 @@ int main() {
 
         if (mode == MODE_IDLE) { sleep_ms(10); continue; }
 
-        // --- Sample every 100ms for IMU, 500ms for baro-only ---
-        uint32_t interval = (mode == MODE_BARO) ? 500 : 100;
+        // ── Sampling interval ─────────────────────────────
+        uint32_t interval = (mode == MODE_BARO) ? 500
+                          : (mode == MODE_GPS)  ? 1000
+                          :                       100;
         if ((now - last_ms) < interval) { sleep_ms(5); continue; }
         last_ms = now;
 
-        // Read IMU (always unless baro-only mode)
+        // ── Read sensors (only if connected) ──────────────
         float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
-        if (mode != MODE_BARO) {
+        if (imu_ok && mode != MODE_BARO && mode != MODE_GPS) {
             mpu_read(&imu);
             ax = imu.ax / 16384.0f;
             ay = imu.ay / 16384.0f;
@@ -343,14 +389,13 @@ int main() {
             gz = imu.gz / 131.0f;
         }
 
-        // Read baro if needed
-        float pressure = 0, temperature = 0, altitude = 0;
+        float pressure = 0, temperature = 0, altitude_baro = 0;
         if (baro_ok && (mode == MODE_BARO || mode == MODE_ALL || mode == MODE_LOG)) {
             baro_read(&pressure, &temperature);
-            altitude = pressure_to_altitude(pressure);
+            altitude_baro = pressure_to_altitude(pressure);
         }
 
-        // --- Output ---
+        // ── Output ────────────────────────────────────────
         if (mode == MODE_IMU) {
             printf("Sample %d:\n", sample_count);
             printf("  Accel: X=%7.3fg  Y=%7.3fg  Z=%7.3fg\n", ax, ay, az);
@@ -360,26 +405,48 @@ int main() {
 
         } else if (mode == MODE_BARO) {
             printf("Sample %d:\n", sample_count);
-            printf("  Baro:  P=%.2f Pa  T=%.2f C  Alt=%.2f m\n", pressure, temperature, altitude);
+            printf("  Baro:  P=%.2f Pa  T=%.2f C  Alt=%.2f m\n",
+                   pressure, temperature, altitude_baro);
             printf("\n");
             fflush(stdout);
 
+        } else if (mode == MODE_GPS) {
+            gps_print(sample_count, &gps);
+
         } else if (mode == MODE_ALL) {
             printf("Sample %d:\n", sample_count);
-            printf("  Accel: X=%7.3fg  Y=%7.3fg  Z=%7.3fg\n", ax, ay, az);
-            printf("  Gyro:  X=%7.2f/s Y=%7.2f/s Z=%7.2f/s\n", gx, gy, gz);
+            if (imu_ok)
+                printf("  Accel: X=%7.3fg  Y=%7.3fg  Z=%7.3fg\n", ax, ay, az);
+            if (imu_ok)
+                printf("  Gyro:  X=%7.2f/s Y=%7.2f/s Z=%7.2f/s\n", gx, gy, gz);
             if (baro_ok)
-                printf("  Baro:  P=%.2f Pa  T=%.2f C  Alt=%.2f m\n", pressure, temperature, altitude);
+                printf("  Baro:  P=%.2f Pa  T=%.2f C  Alt=%.2f m\n",
+                       pressure, temperature, altitude_baro);
+            if (gps_ok)
+                printf("  GPS:   Fix=%s  Lat=%.6f  Lon=%.6f  Speed=%.2f kts\n",
+                       gps.valid ? "YES" : "NO ",
+                       gps.latitude, gps.longitude, gps.speed_knots);
             printf("\n");
             fflush(stdout);
 
         } else if (mode == MODE_LOG) {
-            if (baro_ok)
+            if (baro_ok && gps_ok)
+                printf("CSV_DATA,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+                       "%.2f,%.2f,%.2f,%.6f,%.6f,%.4f\n",
+                       sample_count, ax, ay, az, gx, gy, gz,
+                       pressure, temperature, altitude_baro,
+                       gps.latitude, gps.longitude, gps.speed_knots);
+            else if (baro_ok)
                 printf("CSV_DATA,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.2f,%.2f,%.2f\n",
-                    sample_count, ax, ay, az, gx, gy, gz, pressure, temperature, altitude);
+                       sample_count, ax, ay, az, gx, gy, gz,
+                       pressure, temperature, altitude_baro);
+            else if (gps_ok)
+                printf("CSV_DATA,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.4f\n",
+                       sample_count, ax, ay, az, gx, gy, gz,
+                       gps.latitude, gps.longitude, gps.speed_knots);
             else
                 printf("CSV_DATA,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f\n",
-                    sample_count, ax, ay, az, gx, gy, gz);
+                       sample_count, ax, ay, az, gx, gy, gz);
             fflush(stdout);
 
             if ((int)(now - log_start_ms) >= log_duration_ms) {

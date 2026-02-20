@@ -36,6 +36,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 set (SOURCES
     src/main.c
+    src/devices/gps/neo_6m.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
@@ -64,7 +65,7 @@ target_link_libraries(SSI_rocketry
 # Add the standard include files to the build
 target_include_directories(SSI_rocketry PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        # ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR}/src
         )
 
 pico_add_extra_outputs(SSI_rocketry)

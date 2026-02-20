@@ -37,7 +37,6 @@ else:
 
 BAUD = 115200
 
-# FIX: timeout=1 so readline() waits long enough for a full line
 ser = serial.Serial(PORT, BAUD, timeout=1)
 
 # CSV state
@@ -52,8 +51,6 @@ def reader_loop(text_widget, status_label):
     global csv_file, csv_writer, csv_filename
     data_count = 0
 
-    # FIX: Always read serial — don't gate on mode
-    # Boot messages from Pico must be drained or they clog the buffer
     while True:
         try:
             line = ser.readline().decode(errors="ignore").strip()
@@ -115,16 +112,17 @@ def main():
     root = tk.Tk()
     root.title("Pico Sensor Tester")
 
-    # Sensor buttons — same as original + Baro and All working
+    # Sensor buttons
     frame = tk.Frame(root)
     frame.pack(padx=10, pady=10)
 
     tk.Button(frame, text="IMU",       command=lambda: send_cmd("i"), width=12).grid(row=0, column=0, padx=5, pady=5)
     tk.Button(frame, text="Barometer", command=lambda: send_cmd("b"), width=12).grid(row=0, column=1, padx=5, pady=5)
-    tk.Button(frame, text="All",       command=lambda: send_cmd("a"), width=12).grid(row=0, column=2, padx=5, pady=5)
-    tk.Button(frame, text="Stop",      command=lambda: send_cmd("n"), width=12).grid(row=0, column=3, padx=5, pady=5)
+    tk.Button(frame, text="GPS",       command=lambda: send_cmd("g"), width=12).grid(row=0, column=2, padx=5, pady=5)
+    tk.Button(frame, text="All",       command=lambda: send_cmd("a"), width=12).grid(row=0, column=3, padx=5, pady=5)
+    tk.Button(frame, text="Stop",      command=lambda: send_cmd("n"), width=12).grid(row=0, column=4, padx=5, pady=5)
 
-    # CSV duration buttons — same as original
+    # CSV duration buttons
     csv_frame = tk.Frame(root)
     csv_frame.pack(padx=10, pady=5)
 

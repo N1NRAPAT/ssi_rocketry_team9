@@ -3,7 +3,7 @@
 //  Only parses GPRMC / GNRMC (contains all three fields)
 // ============================================================
 
-#include "neo6m_gps.h"
+#include "neo_6m.h"
 
 #include <stdio.h>
 #include <string.h>
