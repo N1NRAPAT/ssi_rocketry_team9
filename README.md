@@ -116,22 +116,6 @@ SPI1   – LoRa SX1278  →  GP16 (MISO),GP18 (SCK),  GP19(MOSI), GP17(NSS)
 
 ---
 
-## Power Chain
-
-```
-2S LiPo (7.4V)
-      ↓
-HX-2S-D20 BMS
-  (over-discharge / over-charge / short circuit / cell balancing)
-      ↓
-MP1584EN Buck Converter  (7.4V → 3.3V, 3A)
-      ↓
-Pico W VSYS (Pin 39)
-      ↓
-Pico onboard regulator → 3.3V rail → all sensors
-```
-
----
 
 ## Software
 
