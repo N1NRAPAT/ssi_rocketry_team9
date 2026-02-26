@@ -37,13 +37,13 @@ pico_sdk_init()
 set (SOURCES
     src/main.c
     src/devices/gps/neo_6m.c
-    src/devices/imu.c
+    src/devices/mpu6050/imu.c
     src/devices/barometric_sensor/baro.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
 
-add_subdirectory(libs/FatFs_SPI)
+add_subdirectory(memory/FatFs_SPI)
 
 
 pico_set_program_name(SSI_rocketry "SSI_rocketry")
@@ -55,19 +55,19 @@ pico_enable_stdio_usb(SSI_rocketry 1)
 
 # Add the standard library to the build
 target_link_libraries(SSI_rocketry
-        pico_stdlib
-        hardware_i2c
-        FatFs_SPI
-        pico_cyw43_arch_none
-        hardware_uart
-        hardware_gpio
-        m
+        pico_stdlib # pico_c_lang 
+        hardware_i2c # i2c
+        FatFs_SPI # spi 
+        pico_cyw43_arch_none # wifi 
+        hardware_uart # uart 
+        hardware_gpio # gpio 
+        m # math 
         )
 
 # Add the standard include files to the build
 target_include_directories(SSI_rocketry PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
-        ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR} # searc through directory 
+        ${CMAKE_CURRENT_LIST_DIR}/src # Search through src folder 
         )
 
 pico_add_extra_outputs(SSI_rocketry)

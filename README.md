@@ -15,90 +15,192 @@ Our team decide to participate in ssi-society to develop a rocket that can reach
 
 ![Pico structure](https://www.raspberrypi.com/documentation/microcontrollers/images/pico2w-pinout.svg)
 
-### Pin register by :
+# SSI Rocketry — Pico W Flight Computer
 
-1. **I2C0 — For IMU + Barometer**
-   * SDA → GPIO 2
-   * SCL → GPIO 3
+A Raspberry Pi Pico W based rocket flight computer with IMU, barometric altimeter, GPS, LoRa telemetry, and SD card data logging.
 
+---
 
-2. **UART1 — For GPS**
-   * GPS TX → GPIO 1
-   * GPS RX → GPIO 2
+## Hardware Overview
 
-3. **SPI0 — For LoRa SX1278**
-   * SCK → GPIO 18
-   * MOSI → GPIO 19
-   * MISO → GPIO 16
-   * CS → GPIO 17
-   * DIO0 → GPIO 20
+### Microcontroller
+- **Raspberry Pi Pico W**
 
-4. **SPI1 — For SD Card**
-   * SCK → GPIO 10
-   * MOSI → GPIO 11
-   * MISO → GPIO 12
-   * CS → GPIO 13
+### Sensors & Modules
 
-5. **Power**
-   * All sensors (except GPS) → 3.3V
-   * GPS → 5V
-   * All grounds → GND
+| Module | Function |
+|---|---|
+| MPU-6050 | IMU — accelerometer + gyroscope |
+| MS5611-01BA | Barometric altimeter — altitude + apogee detection |
+| NEO-6M-0-001 | GPS — position + speed |
+| SX1278 Ra-02 | LoRa radio — telemetry + apogee alert |
+| SD Module | SD card data logger |
 
---- 
+### Power System
 
+| Component | Details |
+|---|---|
+| Battery | 2S LiPo (7.4V) |
+| BMS | HX-2S-D20 — 20A, over-discharge/charge/short circuit + cell balancing |
+| Buck Converter | MP1584EN — 7.4V → 3.3V, 3A, ~2cm × 1.5cm |
 
-### Github workflow :
+---
 
-**Commit code**
-```bash
-    cd SSI_ROCKETRY
-    git add .
-    git commit -m "Your comments"
+## Pin Wiring
+
+### MPU-6050 — IMU (I2C1)
+> **Note:** MPU-6050 and MS5611 share the same I2C bus (same SDA/SCL pins).  
+> If boards are split and wiring from the same pin is difficult, move the IMU to GPIO 11/12.
+
+| MPU-6050 | Pico W | Pin # |
+|---|---|---|
+| SDA | GP2 *(or GP11 if split)* | Pin 4 *(or Pin 15)* |
+| SCL | GP3 *(or GP12 if split)* | Pin 5 *(or Pin 16)* |
+| VCC | 3.3V | Pin 36 |
+| GND | GND | Pin 38 |
+
+### MS5611-01BA — Barometer (I2C1)
+
+| MS5611 | Pico W | Pin # |
+|---|---|---|
+| SDA | GP2 | Pin 4 |
+| SCL | GP3 | Pin 5 |
+| VCC | 3.3V | Pin 36 |
+| GND | GND | Pin 38 |
+
+### NEO-6M-0-001 — GPS (UART0)
+
+| NEO-6M | Pico W | Pin # |
+|---|---|---|
+| TX | GP0 | Pin 1 |
+| RX | GP1 | Pin 2 |
+| VCC | 3.3V | Pin 36 |
+| GND | GND | Pin 38 |
+
+### SX1278 Ra-02 — LoRa Radio (SPI1)
+
+| SX1278 | Pico W | Pin # |
+|---|---|---|
+| SCK | GP18 | Pin 24 |
+| MISO | GP16 | Pin 21 |
+| MOSI | GP19 | Pin 25 |
+| NSS (CS) | GP17 | Pin 22 |
+| RST | GP22 | Pin 29 |
+| DIO0 | GP20 | Pin 26 |
+| VCC | 3.3V | Pin 36 |
+| GND | GND | Pin 38 |
+
+### SD Card Module — Logger (SPI0)
+
+| SD Module | Pico W | Pin # |
+|---|---|---|
+| MISO | GP8 | Pin 11 |
+| MOSI | GP7 | Pin 10 |
+| SCK | GP6 | Pin 9 |
+| CS | GP9 | Pin 12 |
+| VCC | 3.3V | Pin 36 |
+| GND | GND | Pin 38 |
+
+---
+
+## Full Pin Map Summary
+
+```
+UART0  – GPS          →  GP0  (TX),  GP1  (RX)
+I2C1   – IMU + Baro   →  GP2  (SDA), GP3  (SCL)
+         IMU alt.     →  GP11 (SDA), GP12 (SCL)   ← if boards are split
+SPI0   – SD Card      →  GP6  (SCK), GP7  (MOSI), GP8 (MISO), GP9 (CS)
+SPI1   – LoRa SX1278  →  GP16 (MISO),GP18 (SCK),  GP19(MOSI), GP17(NSS)
+         LoRa extras  →  GP20 (DIO0),GP22 (RST)
 ```
 
-So what is commit files ? Ans: Commit files are the changes that you want to save in your repository. When you commit your changes, you are saving a snapshot of your project at that moment in time. This allows you to track changes over time and revert to previous versions if needed.
+---
 
+## Power Chain
 
-**Commit gitignore:**
-```bash
-    git add .gitignore
-    git commit -m "update gitignore"
+```
+2S LiPo (7.4V)
+      ↓
+HX-2S-D20 BMS
+  (over-discharge / over-charge / short circuit / cell balancing)
+      ↓
+MP1584EN Buck Converter  (7.4V → 3.3V, 3A)
+      ↓
+Pico W VSYS (Pin 39)
+      ↓
+Pico onboard regulator → 3.3V rail → all sensors
 ```
 
-So what is gitignore ? Ans: Gitignore is a file that tells git which files to ignore when committing changes. It is used to exclude files that are not relevant to the project, such as temporary files or build artifacts.
+---
 
-**Branch repository**
-```bash
-    git branch <branch_name>
-    git checkout <branch_name>
+## Software
+
+### Commands (USB Serial)
+
+| Command | Action |
+|---|---|
+| `i` | IMU mode — live accel + gyro |
+| `b` | Baro mode — pressure, temperature, altitude |
+| `g` | GPS mode — lat, lon, speed |
+| `a` | All sensors |
+| `t<sec>` | CSV log for N seconds (e.g. `t30`) |
+| `n` | Stop current mode |
+
+### Apogee Alert
+- Monitors vertical speed from MS5611
+- Arms above **50m** altitude
+- Sends LoRa alert every second when vertical speed drops below **5 m/s** (approaching apogee)
+- Sends final `APOGEE:CONFIRMED` message when descent begins
+
+### CSV Log Format (all sensors)
+```
+CSV_HEADER,sample,ax_g,ay_g,az_g,gx_dps,gy_dps,gz_dps,pressure_pa,temperature_c,altitude_baro_m,lat,lon,speed_kts
+CSV_DATA,0,0.0012,0.0008,1.0021,0.12,0.08,0.04,101325.00,21.50,0.00,53.381290,-1.465775,0.1200
 ```
 
-So what is branch repository ? Ans: Branch repository is a feature of git that allows you to create a separate line of development within your repository. This is useful when you want to work on a new feature or fix a bug without affecting the main codebase.
+---
 
-**Merge branch**
-```bash
-    git merge <branch_name>
+## File Structure
+
+```
+SSI_rocketry/
+├── CMakeLists.txt
+├── pico_sdk_import.cmake
+├── src/
+│   ├── main.c              # Main firmware — IMU + Baro + GPS + LoRa + SD
+│   ├── neo6m_gps.h         # GPS driver header
+│   ├── neo6m_gps.c         # GPS driver — lat, lon, speed
+│   ├── lora_sx1278.h       # LoRa driver header
+│   ├── lora_sx1278.c       # LoRa SX1278 SPI driver
+│   ├── apogee_alert.h      # Apogee alert header
+│   └── apogee_alert.c      # Apogee detection + LoRa alert
+├── ground_rx/
+│   └── ground_rx.c         # Ground station receiver firmware
+└── libs/
+    └── FatFs_SPI/          # SD card FatFs library
 ```
 
-So what is merge branch ? Ans: Merge branch is a feature of git that allows you to combine changes from one branch into another. This is useful when you want to integrate changes from a feature branch into the main codebase.
+---
 
-**pull request**
+## Build Instructions
+
 ```bash
-    git pull <remote_name> <branch_name>
+mkdir build && cd build
+cmake ..
+make -j4
 ```
-So what is pull request ? Ans: Pull request is a feature of git that allows you to request changes from one branch into another. This is useful when you want to integrate changes from a feature branch into the main codebase.
+Flash `SSI_rocketry.uf2` to the Pico W by holding BOOTSEL and copying the file.
 
-**push**
-```bash
-    git push <remote_name> <branch_name>
-```
-So what is push ? Ans: Push is a feature of git that allows you to upload changes from your local repository to a remote repository. This is useful when you want to share your changes with others or back them up.
+---
 
-**Update First month of the year progress**
+## Notes
 
-Our team Avionic did a plenty of work by I have to start with sensor and innovation progress
-IMU one of our team focus on the most for a long time to trying to minimise risk of pointing wrong direction to the rocket so out first exercution was used raw output from imu itself but the thing is when we used raw data we were lost of a millisec data for instance rocket turn 1 - 5 degree in 5 second so it was supposed to show the real value in each of sec like propery one but instead of that it was shown a fractuate of swing in term of output so that why we integrate a mathimatic equation like kalman filter into an our algorithm
-
+- **SX1278 is 3.3V only** — never connect to 5V
+- **Always attach antenna** to SX1278 before powering on
+- **GPS cold start** takes 1–3 minutes outdoors to acquire fix
+- **Set MP1584EN output to exactly 3.3V** with a multimeter before connecting Pico
+- SD card must be formatted as **FAT32**
+- BMS rated at 20A gives ~60x headroom over peak system draw (~325mA)
 
 
 ### **Avionic team member :**
@@ -106,7 +208,6 @@ IMU one of our team focus on the most for a long time to trying to minimise risk
    1. Ninrapat (Overall-code-management)
    2. Rohan    (Avionic lead)
    3. Ahmed    (Power and Design) 
-   4. Kene     (Electric and Design)
-   5. Saleh    (Simulation post flight)
+   4. Saleh    (Simulation post flight)
    
    

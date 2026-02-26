@@ -1,3 +1,4 @@
+// PICO , Clang libs 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -5,8 +6,9 @@
 #include "hardware/i2c.h"
 #include <math.h>
 
+// Sensors libs 
 #include "src/devices/gps/neo_6m.h"
-#include "src/devices/imu.h"
+#include "src/devices/mpu6050/imu.h"
 #include "src/devices/barometric_sensor/baro.h"
 
 // ============================================================
@@ -34,10 +36,11 @@ static bool  baseline_set   = false;
 // ============================================================
 static bool read_command(char *cmd_buf, int buf_size) {
     int i = 0, c;
-    while (i < buf_size - 1) {
+    while (i < buf_size - 1) { // loop in size of buf : len(buf)
         c = getchar_timeout_us(0);
         if (c == PICO_ERROR_TIMEOUT) break;
         cmd_buf[i++] = (char)c;
+        // 
     }
     cmd_buf[i] = '\0';
     return i > 0;
@@ -138,7 +141,7 @@ int main() {
 
     imu_data_t imu;
     gps_data_t gps = {0};
-    char cmd[32];
+    char cmd[32]; 
 
     while (true) {
         uint32_t now = to_ms_since_boot(get_absolute_time());
@@ -147,7 +150,18 @@ int main() {
         if (gps_ok) gps_update(&gps);
 
         // ── Commands ──────────────────────────────────────
-        if (read_command(cmd, sizeof(cmd))) {
+        if (read_command(cmd, sizeof(cmd))) { 
+
+            /* BENCH TESING - NON APOGEE CONDITIONS 
+            CMD - command selection sensors mode in avionic payload     
+                Mode :     
+                    ' i '  = imu detected , mode , imu output 
+                    ' b '  = baro detected , mode , baro output 
+                    ' g '  = gps detected , mode , gps output 
+                    ' a '  = all sensors detected , mode , all output 
+                    ' t '  = time duration mode , mode , logging output -> python via serial 
+                    ' n '  = stop , mode , end loop condition 
+            */
 
             if (cmd[0] == 'i') {
                 if (!imu_ok) { printf("PICO: No IMU connected\n"); fflush(stdout); }
