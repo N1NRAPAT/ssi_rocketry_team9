@@ -6,25 +6,17 @@
 #include "hardware/i2c.h"
 #include <math.h>
 
-// Sensors libs 
+// Sensors libs -> need to allow Cmake to compile these as C files in src
 #include "src/devices/gps/neo_6m.h"
 #include "src/devices/mpu6050/imu.h"
 #include "src/devices/barometric_sensor/baro.h"
-
-// ============================================================
-//  IMU + Barometer + GPS Firmware
-//  19 Feb 2026
-//  GPIO 2 (SDA) & GPIO 3 (SCL)  – I2C1  (IMU + Baro)
-//  GP0 (TX)     & GP1 (RX)      – UART0 (GPS)
-//
-//  All sensors are INDEPENDENT:
-//  - If any sensor is missing, the others keep running
-//  - No sensor waits for another to initialize
-//  - Each sensor has its own ok flag
-// ============================================================
+#include "src/devices/Lora/lora.h"
 
 #define I2C_SDA_PIN   2
 #define I2C_SCL_PIN   3
+// IMU and Baro share the same I2C bus (i2c1) with different addresses:
+// - MPU6050 IMU: 0x68
+// - MS5611 Barometer: 0x77 (CSB=GND) or 0x76 (CSB=VCC)
 
 // Baseline pitch/roll captured at sample 0 for delta comparison
 static float baseline_pitch = 0.0f;
@@ -39,11 +31,11 @@ static bool read_command(char *cmd_buf, int buf_size) {
     while (i < buf_size - 1) { // loop in size of buf : len(buf)
         c = getchar_timeout_us(0);
         if (c == PICO_ERROR_TIMEOUT) break;
-        cmd_buf[i++] = (char)c;
-        // 
+        cmd_buf[i++] = (char)c; // store char in buf and inc index
+
     }
-    cmd_buf[i] = '\0';
-    return i > 0;
+    cmd_buf[i] = '\0'; // null-terminate
+    return i > 0; 
 }
 
 // ============================================================
@@ -61,13 +53,13 @@ int main() {
     printf("====================================\n\n");
     fflush(stdout);
 
-    // I2C init
+    // I2C init - commom init for both IMU and Baro since they share the bus
     i2c_init(i2c1, 400000);
     gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
-    sleep_ms(100);
+    sleep_ms(100);`
 
     // I2C bus scan
     printf("Scanning I2C bus...\n");

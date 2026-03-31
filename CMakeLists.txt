@@ -39,6 +39,7 @@ set (SOURCES
     src/devices/gps/neo_6m.c
     src/devices/mpu6050/imu.c
     src/devices/barometric_sensor/baro.c
+    src/devices/Lora/lora.c
     )
 
 add_executable(SSI_rocketry ${SOURCES} )
