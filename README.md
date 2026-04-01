@@ -35,6 +35,7 @@ A Raspberry Pi Pico W based rocket flight computer with IMU, barometric altimete
 | NEO-6M-0-001 | GPS — position + speed |
 | SX1278 Ra-02 | LoRa radio — telemetry + apogee alert |
 | SD Module | SD card data logger |
+| External MCU | Flight computer comms via UART1 (GP12/GP13) |
 
 ### Power System
 
@@ -101,6 +102,18 @@ A Raspberry Pi Pico W based rocket flight computer with IMU, barometric altimete
 | VCC | 3.3V | Pin 36 |
 | GND | GND | Pin 38 |
 
+### External MCU / Flight Computer (UART1)
+
+> **⚠️ Note:** GP12 was previously listed as an alternative SCL for IMU (if boards are split).  
+> If you use GP12/GP13 for MCU comms, **do NOT use GP12 as IMU SCL** — pick one or the other.  
+> UART0 (GP0/GP1) is already taken by GPS so UART1 is used here.
+
+| MCU | Pico W | Pin # |
+|---|---|---|
+| RX | GP12 (TX) | Pin 16 |
+| TX | GP13 (RX) | Pin 17 |
+| GND | GND | Pin 38 |
+
 ---
 
 ## Full Pin Map Summary
@@ -108,8 +121,9 @@ A Raspberry Pi Pico W based rocket flight computer with IMU, barometric altimete
 ```
 UART0  – GPS          →  GP0  (TX),  GP1  (RX)
 I2C1   – IMU + Baro   →  GP2  (SDA), GP3  (SCL)
-         IMU alt.     →  GP11 (SDA), GP12 (SCL)   ← if boards are split
+         IMU alt.     →  GP11 (SDA), GP12 (SCL)   ← only if NOT using MCU comms
 SPI0   – SD Card      →  GP6  (SCK), GP7  (MOSI), GP8 (MISO), GP9 (CS)
+UART1  – Ext. MCU     →  GP12 (TX),  GP13 (RX)    ← conflicts with IMU alt SCL
 SPI1   – LoRa SX1278  →  GP16 (MISO),GP18 (SCK),  GP19(MOSI), GP17(NSS)
          LoRa extras  →  GP20 (DIO0),GP22 (RST)
 ```
@@ -193,5 +207,3 @@ Flash `SSI_rocketry.uf2` to the Pico W by holding BOOTSEL and copying the file.
    2. Rohan    (Avionic lead)
    3. Ahmed    (Power and Design) 
    4. Saleh    (Simulation post flight)
-   
-   

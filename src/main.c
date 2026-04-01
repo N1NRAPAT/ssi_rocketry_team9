@@ -44,7 +44,8 @@ static bool read_command(char *cmd_buf, int buf_size) {
 int main() {
     stdio_init_all();
     sleep_ms(3000);
-
+    // lora_init();
+    
     printf("\n\n");
     printf("====================================\n");
     printf("  IMU + Barometer + GPS Test        \n");
