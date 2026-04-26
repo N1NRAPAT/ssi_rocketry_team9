@@ -13,8 +13,8 @@ void altitude_kf_init(AltitudeKF *kf) {
     kf->P[1][0] = 0;
     kf->P[1][1] = 10;
 
-    kf->R = 6.0f;
-    kf->Q = 5.0f;
+    kf->R = 2.0f;
+    kf->Q = 0.5f;
 }
 
 // ------------- PRESSURE → ALTITUDE -------------
